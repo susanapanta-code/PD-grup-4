@@ -52,16 +52,16 @@ def takeoff ():
 
 def land ():
     global dron
-    # llamada bloqueante
-    dron.Land()
+    # llamada no bloqueante
+    dron.Land(blocking = False, callback = inTheAir)
     landBtn['text'] = 'En tierra'
     landBtn['fg'] = 'white'
     landBtn['bg'] = 'green'
 
 def RTL():
     global dron
-    # llamada bloqueante
-    dron.RTL()
+    # llamada no bloqueante
+    dron.RTL(blocking = False, callback = inTheAir)
     RTLBtn['text'] = 'En tierra'
     RTLBtn['fg'] = 'white'
     RTLBtn['bg'] = 'green'
