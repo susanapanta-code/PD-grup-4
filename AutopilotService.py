@@ -17,6 +17,7 @@ def publish_telemetry_info (telemetry_info):
     global sending_topic, client
     client.publish(sending_topic + '/telemetryInfo', json.dumps(telemetry_info))
 
+
 def on_message(cli, userdata, message):
     global  sending_topic, client
     global dron
@@ -64,6 +65,16 @@ def on_message(cli, userdata, message):
     if command == 'stopTelemetry':
         dron.stop_sending_telemetry_info()
 
+    if command == 'changeHeading':
+        if dron.state == 'flying':
+            heading = int(message.payload.decode("utf-8"))
+            dron.changeHeading(heading)
+
+    if command == 'changeNavSpeed':
+        if dron.state == 'flying':
+            speed = float(message.payload.decode("utf-8"))
+            dron.changeNavSpeed(speed)
+
 
 def on_connect(client, userdata, flags, rc):
     global connected
@@ -90,4 +101,3 @@ client.connect (broker_address,broker_port)
 client.subscribe('+/autopilotServiceDemo/#')
 print ('AutopilotServiceDemo esperando peticiones')
 client.loop_forever()
-
