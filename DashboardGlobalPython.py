@@ -4,7 +4,7 @@ import tkinter as tk
 from dronLink.Dron import Dron
 import paho.mqtt.client as mqtt
 
-def restart ():
+def restart (): 
     time.sleep (5)
 
     arm_takeOffBtn['text'] = 'Armar'
@@ -22,7 +22,6 @@ def restart ():
     previousBtn['fg'] = 'black'
     previousBtn['bg'] = 'dark orange'
 
-
 def showTelemetryInfo (telemetry_info):
     global heading, altitude, groundSpeed, state
     global altShowLbl, headingShowLbl, stateShowLbl
@@ -30,8 +29,7 @@ def showTelemetryInfo (telemetry_info):
     headingShowLbl['text'] =  round(telemetry_info['heading'],2)
     stateShowLbl['text'] = telemetry_info['state']
 
-
-def connect ():
+def connect (): 
     global dron, speedSldr
     client.publish('interfazGlobal/autopilotServiceDemo/connect')
     # cambiamos el color del boton
@@ -41,29 +39,28 @@ def connect ():
     # fijamos la velocidad por defecto en el slider
     speedSldr.set(1)
 
-
-def takeoff ():
+def takeoff (): 
     global dron
     client.publish('interfazGlobal/autopilotServiceDemo/arm_takeOff')
     arm_takeOffBtn['text'] = 'Despegando...'
     arm_takeOffBtn['fg'] = 'black'
     arm_takeOffBtn['bg'] = 'yellow'
 
-def land ():
+def land (): 
     global dron
     client.publish('interfazGlobal/autopilotServiceDemo/Land')
     landBtn['text'] = 'Aterrizando ...'
     landBtn['fg'] = 'black'
     landBtn['bg'] = 'yellow'
 
-def RTL():
+def RTL(): 
     global dron
     client.publish('interfazGlobal/autopilotServiceDemo/RTL')
     RTLBtn['text'] = 'Retornando ...'
     RTLBtn['fg'] = 'black'
     RTLBtn['bg'] = 'yellow'
 
-def go (direction, btn):
+def go (direction, btn): 
     global dron, previousBtn
     # cambio el color del anterior boton clicado (si lo hay)
     if previousBtn:
@@ -77,32 +74,33 @@ def go (direction, btn):
     # tomo nota de que este es el último botón clicado
     previousBtn = btn
 
-
-def startTelem():
+def startTelem(): 
     global dron
     client.publish('interfazGlobal/autopilotServiceDemo/startTelemetry')
 
-def stopTelem():
+def stopTelem(): 
     global dron
-    client.publish('interfazGlobal/autopilotServiceDemo/stopTelem')
+    client.publish('interfazGlobal/autopilotServiceDemo/stopTelemetry')
 
-def changeHeading (event):
+def changeHeading (event): 
     global dron
     global gradesSldr
+    # publicamos el nuevo heading por MQTT
+    client.publish('interfazGlobal/autopilotServiceDemo/changeHeading', str(int(gradesSldr.get())))
 
-def changeNavSpeed (event):
+def changeNavSpeed (event): 
     global dron
     global speedSldr
+    # publicamos la nueva velocidad por MQTT
+    client.publish('interfazGlobal/autopilotServiceDemo/changeNavSpeed', str(float(speedSldr.get())))
 
-
-def on_connect(client, userdata, flags, rc):
+def on_connect(client, userdata, flags, rc): 
     if rc==0:
         print("connected OK Returned code=",rc)
     else:
         print("Bad connection Returned code=",rc)
 
-
-def on_message(client, userdata, message):
+def on_message(client, userdata, message): 
     # aqui proceso los eventos que me envía el autopilot service
     # basicamente son las indicaciones de que se han ido completando las operaciones solicitadas
     # lo cual me permite ir cambiando los colores de los botones
@@ -115,7 +113,6 @@ def on_message(client, userdata, message):
         connectBtn['text'] = 'Conectado'
         connectBtn['fg'] = 'white'
         connectBtn['bg'] = 'green'
-
 
     if message.topic == 'autopilotServiceDemo/interfazGlobal/flying':
         arm_takeOffBtn['text'] = 'En el aire'
@@ -132,7 +129,6 @@ def on_message(client, userdata, message):
         RTLBtn['fg'] = 'white'
         RTLBtn['bg'] = 'green'
         restart()
-
 
 def crear_ventana():
     global dron
