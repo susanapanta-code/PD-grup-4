@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
+using System.Diagnostics;
 using System.Drawing;
 using System.Linq;
 using System.Text;
@@ -149,11 +150,13 @@ namespace Formulario
         {
 
             dron.EnviarDatosTelemetria(ProcesarTelemetria);
+            dron.EnviarDatosTelemetriaFlightModes(ProcesarTelemetriaFlightModes);
         }
 
         private void detenerTelemetriaBtn_Click(object sender, EventArgs e)
         {
             dron.DetenerDatosTelemetria();
+            dron.DetenerDatosTelemetriaFlightModes();
         }
 
         private void ProcesarTelemetria(byte id, List<(string nombre, float valor)> telemetria)
@@ -163,6 +166,7 @@ namespace Formulario
             double lon = ((double)telemetria[2].valor) / 0.1E+8;
             double heading = ((double)telemetria[3].valor) / 100;
 
+
             // Coloco los datos de telemetria en su sitio
             altitudLbl.Text = telemetria[0].valor.ToString();
             latitudLbl.Text = lat.ToString();
@@ -170,6 +174,15 @@ namespace Formulario
             headLbl.Text = heading.ToString();
 
         }
+        private void ProcesarTelemetriaFlightModes(byte id, List<(string nombre, uint valor)> telemetria)
+        {
+
+            uint modeId = (uint)telemetria[0].valor;
+            string modeName = CopterModes.GetModeName(modeId);
+
+            flightModeLbl.Text = modeName;
+        }
+
         private void headingTrackBar_Scroll(object sender, EventArgs e)
         {
             // Recojo el valor del heading seleccionado
@@ -214,7 +227,5 @@ namespace Formulario
         {
 
         }
-
-
     }
 }

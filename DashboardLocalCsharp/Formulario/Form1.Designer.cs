@@ -57,14 +57,16 @@
             this.button10 = new System.Windows.Forms.Button();
             this.button9 = new System.Windows.Forms.Button();
             this.groupBox1 = new System.Windows.Forms.GroupBox();
+            this.alturaBox = new System.Windows.Forms.Label();
+            this.metrosDespegue_trackBar = new System.Windows.Forms.TrackBar();
             this.label1 = new System.Windows.Forms.Label();
             this.but_connect = new System.Windows.Forms.Button();
             this.button7 = new System.Windows.Forms.Button();
             this.despegarBtn = new System.Windows.Forms.Button();
             this.button6 = new System.Windows.Forms.Button();
             this.menuStrip1 = new System.Windows.Forms.MenuStrip();
-            this.metrosDespegue_trackBar = new System.Windows.Forms.TrackBar();
-            this.alturaBox = new System.Windows.Forms.Label();
+            this.flightModeLbl = new System.Windows.Forms.Label();
+            this.label10 = new System.Windows.Forms.Label();
             ((System.ComponentModel.ISupportInitialize)(this.headingTrackBar)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.velocidadTrackBar)).BeginInit();
             this.groupBox4.SuspendLayout();
@@ -144,6 +146,8 @@
             // 
             // groupBox4
             // 
+            this.groupBox4.Controls.Add(this.label10);
+            this.groupBox4.Controls.Add(this.flightModeLbl);
             this.groupBox4.Controls.Add(this.label7);
             this.groupBox4.Controls.Add(this.headLbl);
             this.groupBox4.Controls.Add(this.longitudLbl);
@@ -155,11 +159,11 @@
             this.groupBox4.Controls.Add(this.button22);
             this.groupBox4.Controls.Add(this.button23);
             this.groupBox4.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.groupBox4.Location = new System.Drawing.Point(333, 282);
+            this.groupBox4.Location = new System.Drawing.Point(327, 296);
             this.groupBox4.Margin = new System.Windows.Forms.Padding(4);
             this.groupBox4.Name = "groupBox4";
             this.groupBox4.Padding = new System.Windows.Forms.Padding(4);
-            this.groupBox4.Size = new System.Drawing.Size(369, 212);
+            this.groupBox4.Size = new System.Drawing.Size(369, 263);
             this.groupBox4.TabIndex = 30;
             this.groupBox4.TabStop = false;
             this.groupBox4.Text = "Telemetría";
@@ -167,7 +171,7 @@
             // label7
             // 
             this.label7.AutoSize = true;
-            this.label7.Location = new System.Drawing.Point(180, 156);
+            this.label7.Location = new System.Drawing.Point(187, 156);
             this.label7.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
             this.label7.Name = "label7";
             this.label7.Size = new System.Drawing.Size(85, 25);
@@ -186,7 +190,7 @@
             // longitudLbl
             // 
             this.longitudLbl.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.longitudLbl.Location = new System.Drawing.Point(104, 154);
+            this.longitudLbl.Location = new System.Drawing.Point(111, 154);
             this.longitudLbl.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
             this.longitudLbl.Name = "longitudLbl";
             this.longitudLbl.Size = new System.Drawing.Size(74, 38);
@@ -195,7 +199,7 @@
             // latitudLbl
             // 
             this.latitudLbl.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.latitudLbl.Location = new System.Drawing.Point(104, 105);
+            this.latitudLbl.Location = new System.Drawing.Point(111, 105);
             this.latitudLbl.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
             this.latitudLbl.Name = "latitudLbl";
             this.latitudLbl.Size = new System.Drawing.Size(74, 38);
@@ -213,7 +217,7 @@
             // label2
             // 
             this.label2.AutoSize = true;
-            this.label2.Location = new System.Drawing.Point(193, 107);
+            this.label2.Location = new System.Drawing.Point(200, 107);
             this.label2.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
             this.label2.Name = "label2";
             this.label2.Size = new System.Drawing.Size(66, 25);
@@ -223,7 +227,7 @@
             // label3
             // 
             this.label3.AutoSize = true;
-            this.label3.Location = new System.Drawing.Point(8, 106);
+            this.label3.Location = new System.Drawing.Point(15, 106);
             this.label3.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
             this.label3.Name = "label3";
             this.label3.Size = new System.Drawing.Size(70, 25);
@@ -233,7 +237,7 @@
             // label5
             // 
             this.label5.AutoSize = true;
-            this.label5.Location = new System.Drawing.Point(0, 154);
+            this.label5.Location = new System.Drawing.Point(7, 154);
             this.label5.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
             this.label5.Name = "label5";
             this.label5.Size = new System.Drawing.Size(87, 25);
@@ -423,6 +427,24 @@
             this.groupBox1.TabStop = false;
             this.groupBox1.Text = "Control";
             // 
+            // alturaBox
+            // 
+            this.alturaBox.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.alturaBox.Location = new System.Drawing.Point(19, 81);
+            this.alturaBox.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
+            this.alturaBox.Name = "alturaBox";
+            this.alturaBox.Size = new System.Drawing.Size(83, 36);
+            this.alturaBox.TabIndex = 12;
+            // 
+            // metrosDespegue_trackBar
+            // 
+            this.metrosDespegue_trackBar.Location = new System.Drawing.Point(110, 81);
+            this.metrosDespegue_trackBar.Margin = new System.Windows.Forms.Padding(4);
+            this.metrosDespegue_trackBar.Name = "metrosDespegue_trackBar";
+            this.metrosDespegue_trackBar.Size = new System.Drawing.Size(241, 56);
+            this.metrosDespegue_trackBar.TabIndex = 40;
+            this.metrosDespegue_trackBar.Scroll += new System.EventHandler(this.metrosDespegue_trackBar_Scroll);
+            // 
             // label1
             // 
             this.label1.AutoSize = true;
@@ -496,23 +518,24 @@
             this.menuStrip1.TabIndex = 33;
             this.menuStrip1.Text = "menuStrip1";
             // 
-            // metrosDespegue_trackBar
+            // flightModeLbl
             // 
-            this.metrosDespegue_trackBar.Location = new System.Drawing.Point(110, 81);
-            this.metrosDespegue_trackBar.Margin = new System.Windows.Forms.Padding(4);
-            this.metrosDespegue_trackBar.Name = "metrosDespegue_trackBar";
-            this.metrosDespegue_trackBar.Size = new System.Drawing.Size(241, 56);
-            this.metrosDespegue_trackBar.TabIndex = 40;
-            this.metrosDespegue_trackBar.Scroll += new System.EventHandler(this.metrosDespegue_trackBar_Scroll);
+            this.flightModeLbl.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.flightModeLbl.Location = new System.Drawing.Point(192, 215);
+            this.flightModeLbl.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
+            this.flightModeLbl.Name = "flightModeLbl";
+            this.flightModeLbl.Size = new System.Drawing.Size(139, 38);
+            this.flightModeLbl.TabIndex = 13;
             // 
-            // alturaBox
+            // label10
             // 
-            this.alturaBox.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.alturaBox.Location = new System.Drawing.Point(19, 81);
-            this.alturaBox.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
-            this.alturaBox.Name = "alturaBox";
-            this.alturaBox.Size = new System.Drawing.Size(83, 36);
-            this.alturaBox.TabIndex = 12;
+            this.label10.AutoSize = true;
+            this.label10.Location = new System.Drawing.Point(32, 216);
+            this.label10.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
+            this.label10.Name = "label10";
+            this.label10.Size = new System.Drawing.Size(145, 25);
+            this.label10.TabIndex = 14;
+            this.label10.Text = "Modo de Vuelo";
             // 
             // Form1
             // 
@@ -586,6 +609,8 @@
         private System.Windows.Forms.MenuStrip menuStrip1;
         private System.Windows.Forms.TrackBar metrosDespegue_trackBar;
         private System.Windows.Forms.Label alturaBox;
+        private System.Windows.Forms.Label flightModeLbl;
+        private System.Windows.Forms.Label label10;
     }
 }
 
