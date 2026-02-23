@@ -14,6 +14,7 @@ namespace Formulario
     public partial class Form1 : Form
     {
         Dron dron = new Dron();
+
         public Form1()
         {
             InitializeComponent();
@@ -104,7 +105,7 @@ namespace Formulario
         {
             // Click en boton para dspegar
             // Llamada no bloqueante para no bloquear el formulario
-            dron.Despegar(int.Parse(alturaBox.Text), bloquear: false, EnAire, "Volando");
+            dron.Despegar(metrosDespegue_trackBar.Value, bloquear: false, EnAire, "Volando");
             despegarBtn.BackColor = Color.Yellow;
         }
 
@@ -203,9 +204,17 @@ namespace Formulario
         }
 
 
+        private void metrosDespegue_trackBar_Scroll(object sender, EventArgs e)
+        {
+            // Actualizar el label con el valor seleccionado
+            alturaBox.Text = metrosDespegue_trackBar.Value.ToString();
+        }
+
         private void Form1_Load(object sender, EventArgs e)
         {
 
         }
+
+
     }
 }
