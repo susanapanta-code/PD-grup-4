@@ -61,6 +61,9 @@
         <!-- 🔵 Botón de aterrizar (tercera fila, ancho completo) -->
         <button id="botonAterrizar" class="boton" onclick="aterrizarDron()">Aterrizar Dron</button>
 
+        <!-- 🔵 Botón RTL -->
+        <button id="botonRTL" class="boton" onclick="rtlDron()">RTL</button>
+
         <!-- 🔵 Botones de dirección -->
         <div class="direction">
             <div onclick="moverDron('NorthWest')" class="box">NW</div>
@@ -72,6 +75,14 @@
             <div onclick="moverDron('SouthWest')" class="box">SW</div>
             <div onclick="moverDron('South')" class="box">S</div>
             <div onclick="moverDron('SouthEast')" class="box">SE</div>
+        </div>
+
+        <!-- 🔵 Control de Heading -->
+        <div class="mb-2">
+            <label for="headingSlider"><strong>Orientación (Heading):</strong></label>
+            <input type="range" id="headingSlider" class="form-range" min="0" max="360" value="0" step="1" oninput="headingValue.innerText = this.value">
+            <span id="headingValue">0</span>°
+            <button id="botonHeading" class="boton mt-2" onclick="cambiarHeading()">Cambiar Heading</button>
         </div>
 
         <!-- 🔵 Altitud debajo de los 9 botones, ancho completo -->
@@ -105,8 +116,26 @@
                     botonDespegar.classList.remove('boton-amarillo');
                     botonDespegar.classList.add('boton-verde');
                 }
+                if (estado === "landed") {
+                    const botonAterrizar = document.getElementById('botonAterrizar');
+                    botonAterrizar.classList.remove('boton-amarillo');
+                    botonAterrizar.classList.add('boton-verde');
+                }
+                if (estado === "rtl") {
+                    const botonRTL = document.getElementById('botonRTL');
+                    botonRTL.classList.remove('boton-amarillo');
+                    botonRTL.classList.add('boton-verde');
+                }
 
                 document.getElementById("altitudValor").innerText = alt.toFixed(2);
+
+                // Si la telemetría incluye heading, mostrarlo
+                if (data.heading !== undefined) {
+                    document.getElementById('headingSlider').value = data.heading;
+                    document.getElementById('headingValue').innerText = data.heading;
+                    document.getElementById('botonHeading').classList.remove('boton-amarillo');
+                    document.getElementById('botonHeading').classList.add('boton-verde');
+                }
             }
         });
 
@@ -128,10 +157,24 @@
 
         function aterrizarDron() {
             client.publish('mobileFlask/autopilotServiceDemo/Land');
+            document.getElementById('botonAterrizar').classList.remove('boton-verde');
+            document.getElementById('botonAterrizar').classList.add('boton-amarillo');
+        }
+
+        function rtlDron() {
+            client.publish('mobileFlask/autopilotServiceDemo/RTL');
+            document.getElementById('botonRTL').classList.remove('boton-verde');
+            document.getElementById('botonRTL').classList.add('boton-amarillo');
         }
 
         function moverDron(direction) {
             client.publish('mobileFlask/autopilotServiceDemo/go', direction);
+        }
+
+        function cambiarHeading() {
+            const heading = document.getElementById('headingSlider').value;
+            client.publish('mobileFlask/autopilotServiceDemo/heading', heading.toString());
+            document.getElementById('botonHeading').classList.add('boton-amarillo');
         }
     </script>
 

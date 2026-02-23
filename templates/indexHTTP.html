@@ -58,6 +58,9 @@
         <!-- Botón Aterrizar -->
         <button id="botonAterrizar" class="boton" onclick="aterrizarDron()">Aterrizar Dron</button>
 
+        <!-- Botón RTL -->
+        <button id="botonRTL" class="boton" onclick="rtlDron()">RTL</button>
+
         <!-- Botones de dirección -->
         <div class="direction">
             <div onclick="moverDron('NorthWest')" class="box">NW</div>
@@ -112,7 +115,19 @@ function despegarDron() {
 }
 
 function aterrizarDron() {
-    post("/land");
+    post("/land")
+        .then(() => {
+            document.getElementById('botonAterrizar').classList.remove('boton-verde');
+            document.getElementById('botonAterrizar').classList.add('boton-amarillo');
+        });
+}
+
+function rtlDron() {
+    post("/rtl")
+        .then(() => {
+            document.getElementById('botonRTL').classList.remove('boton-verde');
+            document.getElementById('botonRTL').classList.add('boton-amarillo');
+        });
 }
 
 function moverDron(dir) {
@@ -135,8 +150,16 @@ setInterval(() => {
                 botonDespegar.classList.remove('boton-amarillo');
                 botonDespegar.classList.add('boton-verde');
             }
-
-
+            if (estado === "landed") {
+                const botonAterrizar = document.getElementById('botonAterrizar');
+                botonAterrizar.classList.remove('boton-amarillo');
+                botonAterrizar.classList.add('boton-verde');
+            }
+            if (estado === "rtl") {
+                const botonRTL = document.getElementById('botonRTL');
+                botonRTL.classList.remove('boton-amarillo');
+                botonRTL.classList.add('boton-verde');
+            }
         })
         .catch(() => {});
 }, 500);
