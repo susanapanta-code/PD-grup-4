@@ -17,7 +17,7 @@ def _change_altitude(self, altitude, callback=None, params = None):
     # espero hasta que el dron haya alcanzado la altura indicada
 
     msg = self.message_handler.wait_for_message(
-        'GLOBAL_POSITION_INT',
+        'GLOBAL_POSITION_INT_test',
         condition=self._checkAltitudeReached,
         params=altitude
     )
