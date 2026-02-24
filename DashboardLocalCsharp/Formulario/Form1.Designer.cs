@@ -35,6 +35,8 @@
             this.velocidadLbl = new System.Windows.Forms.Label();
             this.velocidadTrackBar = new System.Windows.Forms.TrackBar();
             this.groupBox4 = new System.Windows.Forms.GroupBox();
+            this.label10 = new System.Windows.Forms.Label();
+            this.flightModeLbl = new System.Windows.Forms.Label();
             this.label7 = new System.Windows.Forms.Label();
             this.headLbl = new System.Windows.Forms.Label();
             this.longitudLbl = new System.Windows.Forms.Label();
@@ -65,8 +67,7 @@
             this.despegarBtn = new System.Windows.Forms.Button();
             this.button6 = new System.Windows.Forms.Button();
             this.menuStrip1 = new System.Windows.Forms.MenuStrip();
-            this.flightModeLbl = new System.Windows.Forms.Label();
-            this.label10 = new System.Windows.Forms.Label();
+            this.ArmarBtn_Click = new System.Windows.Forms.Button();
             ((System.ComponentModel.ISupportInitialize)(this.headingTrackBar)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.velocidadTrackBar)).BeginInit();
             this.groupBox4.SuspendLayout();
@@ -167,6 +168,25 @@
             this.groupBox4.TabIndex = 30;
             this.groupBox4.TabStop = false;
             this.groupBox4.Text = "Telemetría";
+            // 
+            // label10
+            // 
+            this.label10.AutoSize = true;
+            this.label10.Location = new System.Drawing.Point(32, 216);
+            this.label10.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
+            this.label10.Name = "label10";
+            this.label10.Size = new System.Drawing.Size(145, 25);
+            this.label10.TabIndex = 14;
+            this.label10.Text = "Modo de Vuelo";
+            // 
+            // flightModeLbl
+            // 
+            this.flightModeLbl.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.flightModeLbl.Location = new System.Drawing.Point(192, 215);
+            this.flightModeLbl.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
+            this.flightModeLbl.Name = "flightModeLbl";
+            this.flightModeLbl.Size = new System.Drawing.Size(139, 38);
+            this.flightModeLbl.TabIndex = 13;
             // 
             // label7
             // 
@@ -410,6 +430,7 @@
             // groupBox1
             // 
             this.groupBox1.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Stretch;
+            this.groupBox1.Controls.Add(this.ArmarBtn_Click);
             this.groupBox1.Controls.Add(this.alturaBox);
             this.groupBox1.Controls.Add(this.metrosDespegue_trackBar);
             this.groupBox1.Controls.Add(this.label1);
@@ -486,10 +507,10 @@
             // 
             this.despegarBtn.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(255)))), ((int)(((byte)(192)))), ((int)(((byte)(128)))));
             this.despegarBtn.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.despegarBtn.Location = new System.Drawing.Point(115, 154);
+            this.despegarBtn.Location = new System.Drawing.Point(183, 154);
             this.despegarBtn.Margin = new System.Windows.Forms.Padding(4);
             this.despegarBtn.Name = "despegarBtn";
-            this.despegarBtn.Size = new System.Drawing.Size(117, 38);
+            this.despegarBtn.Size = new System.Drawing.Size(131, 38);
             this.despegarBtn.TabIndex = 5;
             this.despegarBtn.Text = "Despegar";
             this.despegarBtn.UseVisualStyleBackColor = false;
@@ -518,24 +539,18 @@
             this.menuStrip1.TabIndex = 33;
             this.menuStrip1.Text = "menuStrip1";
             // 
-            // flightModeLbl
+            // ArmarBtn_Click
             // 
-            this.flightModeLbl.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.flightModeLbl.Location = new System.Drawing.Point(192, 215);
-            this.flightModeLbl.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
-            this.flightModeLbl.Name = "flightModeLbl";
-            this.flightModeLbl.Size = new System.Drawing.Size(139, 38);
-            this.flightModeLbl.TabIndex = 13;
-            // 
-            // label10
-            // 
-            this.label10.AutoSize = true;
-            this.label10.Location = new System.Drawing.Point(32, 216);
-            this.label10.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
-            this.label10.Name = "label10";
-            this.label10.Size = new System.Drawing.Size(145, 25);
-            this.label10.TabIndex = 14;
-            this.label10.Text = "Modo de Vuelo";
+            this.ArmarBtn_Click.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(255)))), ((int)(((byte)(192)))), ((int)(((byte)(128)))));
+            this.ArmarBtn_Click.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.ArmarBtn_Click.Location = new System.Drawing.Point(44, 154);
+            this.ArmarBtn_Click.Margin = new System.Windows.Forms.Padding(4);
+            this.ArmarBtn_Click.Name = "ArmarBtn_Click";
+            this.ArmarBtn_Click.Size = new System.Drawing.Size(131, 38);
+            this.ArmarBtn_Click.TabIndex = 41;
+            this.ArmarBtn_Click.Text = "Guiado";
+            this.ArmarBtn_Click.UseVisualStyleBackColor = false;
+            this.ArmarBtn_Click.Click += new System.EventHandler(this.ArmarBtn_Click_Click);
             // 
             // Form1
             // 
@@ -611,6 +626,7 @@
         private System.Windows.Forms.Label alturaBox;
         private System.Windows.Forms.Label flightModeLbl;
         private System.Windows.Forms.Label label10;
+        private System.Windows.Forms.Button ArmarBtn_Click;
     }
 }
 

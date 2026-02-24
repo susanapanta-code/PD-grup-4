@@ -11,3 +11,15 @@ D:\Julio2018\Docencia\PDD\Proyecto2025\repo\DashboardLocalCsharp\Dashboard\Formu
 D:\Julio2018\Docencia\PDD\Proyecto2025\repo\DashboardLocalCsharp\Dashboard\Formulario\obj\Debug\Formulario.exe
 D:\Julio2018\Docencia\PDD\Proyecto2025\repo\DashboardLocalCsharp\Dashboard\Formulario\obj\Debug\Formulario.pdb
 D:\Julio2018\Docencia\PDD\Proyecto2025\repo\DashboardLocalCsharp\Dashboard\Formulario\obj\Debug\Formulario.exe.config
+C:\Users\Usuario\Documents\GitHub\PD-grup-4\DashboardLocalCsharp\Formulario\bin\Debug\Formulario.exe.config
+C:\Users\Usuario\Documents\GitHub\PD-grup-4\DashboardLocalCsharp\Formulario\bin\Debug\Formulario.exe
+C:\Users\Usuario\Documents\GitHub\PD-grup-4\DashboardLocalCsharp\Formulario\bin\Debug\Formulario.pdb
+C:\Users\Usuario\Documents\GitHub\PD-grup-4\DashboardLocalCsharp\Formulario\bin\Debug\csDronLink.dll
+C:\Users\Usuario\Documents\GitHub\PD-grup-4\DashboardLocalCsharp\Formulario\obj\Debug\Formulario.csproj.AssemblyReference.cache
+C:\Users\Usuario\Documents\GitHub\PD-grup-4\DashboardLocalCsharp\Formulario\obj\Debug\Formulario.Form1.resources
+C:\Users\Usuario\Documents\GitHub\PD-grup-4\DashboardLocalCsharp\Formulario\obj\Debug\Formulario.Properties.Resources.resources
+C:\Users\Usuario\Documents\GitHub\PD-grup-4\DashboardLocalCsharp\Formulario\obj\Debug\Formulario.csproj.GenerateResource.cache
+C:\Users\Usuario\Documents\GitHub\PD-grup-4\DashboardLocalCsharp\Formulario\obj\Debug\Formulario.csproj.CoreCompileInputs.cache
+C:\Users\Usuario\Documents\GitHub\PD-grup-4\DashboardLocalCsharp\Formulario\obj\Debug\Formulario.csproj.Up2Date
+C:\Users\Usuario\Documents\GitHub\PD-grup-4\DashboardLocalCsharp\Formulario\obj\Debug\Formulario.exe
+C:\Users\Usuario\Documents\GitHub\PD-grup-4\DashboardLocalCsharp\Formulario\obj\Debug\Formulario.pdb

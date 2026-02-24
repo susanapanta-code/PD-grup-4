@@ -227,5 +227,10 @@ namespace Formulario
         {
 
         }
+
+        private void ArmarBtn_Click_Click(object sender, EventArgs e)
+        {
+            dron.PonModoGuiado();
+        }
     }
 }
