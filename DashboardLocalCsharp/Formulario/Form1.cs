@@ -124,6 +124,12 @@ namespace Formulario
         {
             // Aqui vendre cuando el dron esté en tierra
             // El mensaje me dice si vengo de un aterrizaje o de un RTL
+
+            // Restablecer el botón de despegue a su estado original
+            despegarBtn.BackColor = Color.FromArgb(255, 192, 128);
+            despegarBtn.ForeColor = Color.Black;
+            despegarBtn.Text = "Despegar"; 
+
             if ((string)mensaje == "Aterrizaje")
                 button7.BackColor = Color.Green;
             else
