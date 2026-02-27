@@ -203,25 +203,32 @@ def disarm():
 
 
 def inTheAir():
-    """Callback cuando el dron ha alcanzado la altitud de despegue.
-    La telemetría se encargará de mostrar 'En el aire ✈' de forma permanente."""
+    """Callback cuando el dron ha alcanzado la altitud de despegue."""
     global _enTransicion
-    _enTransicion = False  # Dejamos que actualizarBotonesSegunEstado tome el control
+    _enTransicion = False
+    # Actualizar el botón inmediatamente al completar el despegue
+    takeOffBtn['text'] = 'En el aire ✈'
+    takeOffBtn['fg'] = 'white'
+    takeOffBtn['bg'] = 'green'
 
 
 def takeoff ():
-    global dron, altSldr
+    global dron, altSldr, _enTransicion
+    if _enTransicion:
+        return  # Evitar doble clic durante transición
     if dron.state != 'armed':
         messagebox.showwarning("Aviso", "El dron debe estar armado para despegar.\nEstado actual: " + dron.state)
         return
     # Usamos la altitud del slider en lugar de un valor fijo
     alt = int(altSldr.get())
+    _enTransicion = True  # Bloquear durante despegue
     result = dron.takeOff(alt, blocking=False, callback=inTheAir)
     if result:
         takeOffBtn['text'] = 'Despegando...'
         takeOffBtn['fg'] = 'black'
         takeOffBtn['bg'] = 'yellow'
     else:
+        _enTransicion = False
         messagebox.showerror("Error", "No se pudo despegar.\nEstado actual: " + dron.state)
 
 
@@ -242,15 +249,33 @@ def onLanded():
 
 
 def land ():
-    global dron
+    global dron, previousBtn, gotoBtn, _enTransicion
+    if _enTransicion:
+        return  # Evitar doble clic durante transición
     if dron.state not in ('flying', 'returning'):
         messagebox.showwarning("Aviso", "El dron debe estar volando para aterrizar.\nEstado actual: " + dron.state)
         return
+
+    # Detener navegación direccional si está activa
+    if previousBtn and previousBtn['bg'] == 'green':
+        dron.go("Stop")
+
     result = dron.Land(blocking=False, callback=onLanded)
     if result:
+        _enTransicion = True  # Bloquear durante aterrizaje
         landBtn['text'] = 'Aterrizando...'
         landBtn['fg'] = 'black'
         landBtn['bg'] = 'yellow'
+        # Resetear el botón goto si estaba navegando
+        if gotoBtn['text'] == 'Navegando...':
+            gotoBtn['text'] = 'Ir a posición'
+            gotoBtn['fg'] = 'black'
+            gotoBtn['bg'] = 'dark orange'
+        # Resetear el botón de dirección anterior si estaba activo
+        if previousBtn:
+            previousBtn['fg'] = 'black'
+            previousBtn['bg'] = 'dark orange'
+            previousBtn = None
 
 
 def onRTLComplete():
@@ -270,19 +295,36 @@ def onRTLComplete():
 
 
 def RTL():
-    global dron
+    global dron, previousBtn, gotoBtn, _enTransicion
+    if _enTransicion:
+        return  # Evitar doble clic durante transición
     if dron.state != 'flying':
         messagebox.showwarning("Aviso", "El dron debe estar volando para RTL.\nEstado actual: " + dron.state)
         return
+
+    # Detener navegación direccional si está activa
+    if previousBtn and previousBtn['bg'] == 'green':
+        dron.go("Stop")
+
     result = dron.RTL(blocking=False, callback=onRTLComplete)
     if result:
+        _enTransicion = True  # Bloquear durante RTL
         RTLBtn['text'] = 'Volviendo a casa...'
         RTLBtn['fg'] = 'black'
         RTLBtn['bg'] = 'yellow'
-
+        # Resetear el botón goto si estaba navegando
+        if gotoBtn['text'] == 'Navegando...':
+            gotoBtn['text'] = 'Ir a posición'
+            gotoBtn['fg'] = 'black'
+            gotoBtn['bg'] = 'dark orange'
+        # Resetear el botón de dirección anterior si estaba activo
+        if previousBtn:
+            previousBtn['fg'] = 'black'
+            previousBtn['bg'] = 'dark orange'
+            previousBtn = None
 
 def go (direction, btn):
-    global dron, previousBtn
+    global dron, previousBtn, gotoBtn
     if previousBtn:
         previousBtn['fg'] = 'black'
         previousBtn['bg'] = 'dark orange'
@@ -291,6 +333,12 @@ def go (direction, btn):
     btn['fg'] = 'white'
     btn['bg'] = 'green'
     previousBtn = btn
+
+    # Resetear el botón goto si estaba navegando
+    if gotoBtn['text'] == 'Navegando...':
+        gotoBtn['text'] = 'Ir a posición'
+        gotoBtn['fg'] = 'black'
+        gotoBtn['bg'] = 'dark orange'
 
 
 def startTelem():
@@ -330,7 +378,7 @@ def gotoReached():
     resetBtn(gotoBtn, 'Ir a posición', 3000)
 
 def gotoPosition():
-    global dron, gotoBtn, latEntry, lonEntry, altGotoEntry
+    global dron, gotoBtn, latEntry, lonEntry, altGotoEntry, previousBtn
     try:
         lat = float(latEntry.get())
         lon = float(lonEntry.get())
@@ -347,6 +395,11 @@ def gotoPosition():
     gotoBtn['text'] = 'Navegando...'
     gotoBtn['fg'] = 'black'
     gotoBtn['bg'] = 'yellow'
+    # Resetear el botón de dirección anterior si estaba activo
+    if previousBtn:
+        previousBtn['fg'] = 'black'
+        previousBtn['bg'] = 'dark orange'
+        previousBtn = None
 
 def rotateFinished():
     global previousBtn
