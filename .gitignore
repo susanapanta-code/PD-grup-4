@@ -1,0 +1,16 @@
+# Visual Studio / C#
+bin/
+obj/
+.vs/
+*.suo
+*.user
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# IDEs
+.idea/
+.vscode/
