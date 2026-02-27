@@ -284,9 +284,9 @@ def cellphone():
     global video_receiver
     video_receiver.setObject(67)
 
-def gato():
+def paraguas():
     global video_receiver
-    video_receiver.setObject(15)
+    video_receiver.setObject(25)
 
 def crear_ventana():
     global dron
@@ -459,11 +459,11 @@ def crear_ventana():
     perroBtn = tk.Button(detectFrame, text="Perro", bg="dark orange", command=perro)
     perroBtn.grid(row=1, column=0, padx=5, pady=5, sticky=tk.N + tk.S + tk.E + tk.W)
 
-    cellphoneBtn = tk.Button(detectFrame, text="Phone", bg="dark orange", command=cellphone)
+    cellphoneBtn = tk.Button(detectFrame, text="Teléfono", bg="dark orange", command=cellphone)
     cellphoneBtn.grid(row=1, column=1, padx=5, pady=5, sticky=tk.N + tk.S + tk.E + tk.W)
 
-    gatoBtn = tk.Button(detectFrame, text="Gato", bg="dark orange", command=gato)
-    gatoBtn.grid(row=1, column=2, padx=5, pady=5, sticky=tk.N + tk.S + tk.E + tk.W)
+    paraguasBtn = tk.Button(detectFrame, text="Paraguas", bg="dark orange", command=paraguas)
+    paraguasBtn.grid(row=1, column=2, padx=5, pady=5, sticky=tk.N + tk.S + tk.E + tk.W)
 
     return ventana
 
