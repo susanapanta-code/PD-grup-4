@@ -276,6 +276,18 @@ def clock ():
 def pizza ():
     video_receiver.setObject(53)
 
+def perro():
+    global video_receiver
+    video_receiver.setObject(16)
+
+def cellphone():
+    global video_receiver
+    video_receiver.setObject(67)
+
+def gato():
+    global video_receiver
+    video_receiver.setObject(15)
+
 def crear_ventana():
     global dron
     global  altShowLbl, headingShowLbl,  speedSldr, gradesSldr, stateShowLbl
@@ -430,6 +442,7 @@ def crear_ventana():
     detectFrame = tk.LabelFrame (ventana, text = "Detección de objetos")
     detectFrame.grid(row=11, column=0, columnspan = 2, padx=5, pady=5, sticky=tk.N + tk.S + tk.E + tk.W)
     detectFrame.rowconfigure(0, weight=1)
+    detectFrame.rowconfigure(1, weight=1)
     detectFrame.columnconfigure(0, weight=1)
     detectFrame.columnconfigure(1, weight=1)
     detectFrame.columnconfigure(2, weight=1)
@@ -442,6 +455,15 @@ def crear_ventana():
 
     pizzaBtn = tk.Button(detectFrame, text="Pizza", bg="dark orange", command=pizza)
     pizzaBtn.grid(row=0, column=2, padx=5, pady=5, sticky=tk.N + tk.S + tk.E + tk.W)
+
+    perroBtn = tk.Button(detectFrame, text="Perro", bg="dark orange", command=perro)
+    perroBtn.grid(row=1, column=0, padx=5, pady=5, sticky=tk.N + tk.S + tk.E + tk.W)
+
+    cellphoneBtn = tk.Button(detectFrame, text="Phone", bg="dark orange", command=cellphone)
+    cellphoneBtn.grid(row=1, column=1, padx=5, pady=5, sticky=tk.N + tk.S + tk.E + tk.W)
+
+    gatoBtn = tk.Button(detectFrame, text="Gato", bg="dark orange", command=gato)
+    gatoBtn.grid(row=1, column=2, padx=5, pady=5, sticky=tk.N + tk.S + tk.E + tk.W)
 
     return ventana
 
