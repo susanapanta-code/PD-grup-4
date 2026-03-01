@@ -104,6 +104,16 @@ namespace Formulario
 
         private void but_takeoff_Click(object sender, EventArgs e)
         {
+            // Restablecer el botón de aterrizar a su estado original
+            button7.BackColor = Color.FromArgb(255, 192, 128);
+            button7.ForeColor = Color.Black;
+            button7.Text = "Aterrizar";
+
+            // Restablecer el botón de RTL a su estado original
+            button6.BackColor = Color.FromArgb(255, 192, 128);
+            button6.ForeColor = Color.Black;
+            button6.Text = "RTL";
+
             // Click en boton para dspegar
             // Llamada no bloqueante para no bloquear el formulario
             dron.Despegar(metrosDespegue_trackBar.Value, bloquear: false, EnAire, "Volando");
