@@ -4,26 +4,126 @@
 
 import tkinter as tk
 from tkinter import messagebox
+import math
 from dronLink.Dron import Dron
 
 
-# ---- Flag global para bloquear actualizarBotonesSegunEstado durante transiciones ----
+# ---- Colores del sistema ----
+COLOR_DISPONIBLE = "dark orange"
+COLOR_NO_DISPONIBLE = "#4682B4"
+COLOR_EN_PROCESO = "yellow"
+COLOR_ACTIVO = "green"
+COLOR_STOP = "red"
+FG_NORMAL = "black"
+FG_ACTIVO = "white"
+FG_NO_DISPONIBLE = "#D0D0D0"
+
+SQRT2 = math.sqrt(2)
+
+# ---- Flag global ----
 _enTransicion = False
 
 
-# ---- Función para resetear un botón a su estado original después de un tiempo ----
+# ---- Helpers para habilitar/deshabilitar botones ----
+def _habilitarBtn(btn, text=None, bg=None, fg=None):
+    btn['state'] = 'normal'
+    if text:
+        btn['text'] = text
+    btn['bg'] = bg if bg else COLOR_DISPONIBLE
+    btn['fg'] = fg if fg else FG_NORMAL
+
+def _deshabilitarBtn(btn, text=None, bg=None, fg=None):
+    if text:
+        btn['text'] = text
+    btn['bg'] = bg if bg else COLOR_NO_DISPONIBLE
+    btn['fg'] = fg if fg else FG_NO_DISPONIBLE
+    btn.configure(disabledforeground=fg if fg else FG_NO_DISPONIBLE)
+    btn['state'] = 'disabled'
+
+def _activarBtn(btn, text=None):
+    if text:
+        btn['text'] = text
+    btn['bg'] = COLOR_ACTIVO
+    btn['fg'] = FG_ACTIVO
+    btn.configure(disabledforeground=FG_ACTIVO)
+    btn['state'] = 'disabled'
+
+def _procesoBtn(btn, text=None):
+    if text:
+        btn['text'] = text
+    btn['bg'] = COLOR_EN_PROCESO
+    btn['fg'] = FG_NORMAL
+    btn.configure(disabledforeground=FG_NORMAL)
+    btn['state'] = 'disabled'
+
+
 def resetBtn(btn, originalText, delay=3000):
-    """Resetea un botón a su estado original (naranja) tras 'delay' ms."""
     def _reset():
         global _enTransicion
         _enTransicion = False
+        btn['state'] = 'normal'
         btn['text'] = originalText
-        btn['fg'] = 'black'
-        btn['bg'] = 'dark orange'
+        btn['fg'] = FG_NORMAL
+        btn['bg'] = COLOR_DISPONIBLE
+        actualizarBotonesSegunEstado()
     btn.after(delay, _reset)
 
 
-def showTelemetryInfo (telemetry_info):
+# ══════════════════════════════════════════
+#  REBUILD CMD — Construye y envía inmediatamente
+# ══════════════════════════════════════════
+
+def _rebuildCmd():
+    """Reconstruye dron.cmd y lo envía inmediatamente.
+    Diagonales normalizadas. NO llama a unfixHeading/fixHeading
+    (que era lo que causaba colisiones). Solo envía el mensaje
+    de velocidad limpio, igual que hace el thread."""
+    from pymavlink import mavutil
+
+    speed = dron.navSpeed
+    diag = speed / SQRT2
+    d = dron.direction
+
+    DIR_MAP = {
+        "North":     ( speed, 0,     0, False),
+        "South":     (-speed, 0,     0, False),
+        "East":      ( 0,     speed, 0, False),
+        "West":      ( 0,    -speed, 0, False),
+        "NorthWest": ( diag, -diag,  0, False),
+        "NorthEast": ( diag,  diag,  0, False),
+        "SouthWest": (-diag, -diag,  0, False),
+        "SouthEast": (-diag,  diag,  0, False),
+        "Forward":   ( speed, 0,     0, True),
+        "Back":      (-speed, 0,     0, True),
+        "Left":      ( 0,    -speed, 0, True),
+        "Right":     ( 0,     speed, 0, True),
+        "Up":        ( 0,     0, -speed, True),
+        "Down":      ( 0,     0,  speed, True),
+        "Stop":      ( 0,     0,     0, False),
+    }
+
+    vx, vy, vz, bodyRef = DIR_MAP.get(d, (0, 0, 0, False))
+
+    if bodyRef:
+        msg = mavutil.mavlink.MAVLink_set_position_target_local_ned_message(
+            10, dron.vehicle.target_system, dron.vehicle.target_component,
+            mavutil.mavlink.MAV_FRAME_BODY_OFFSET_NED,
+            0b0000111111000111,
+            0, 0, 0, vx, vy, vz, 0, 0, 0, 0, 0)
+    else:
+        msg = mavutil.mavlink.MAVLink_set_position_target_global_int_message(
+            10, dron.vehicle.target_system, dron.vehicle.target_component,
+            mavutil.mavlink.MAV_FRAME_LOCAL_NED,
+            0b0000111111000111,
+            0, 0, 0, vx, vy, vz, 0, 0, 0, 0, 0)
+
+    # Asignar para que el thread lo siga enviando cada segundo
+    dron.cmd = msg
+    # Enviar inmediatamente para que ArduPilot no vea un gap
+    dron.vehicle.mav.send(msg)
+
+
+def showTelemetryInfo(telemetry_info):
     global altShowLbl, headingShowLbl, stateShowLbl
     global speedShowLbl, flightModeShowLbl, latShowLbl, lonShowLbl
 
@@ -35,405 +135,403 @@ def showTelemetryInfo (telemetry_info):
     latShowLbl['text'] = round(telemetry_info['lat'], 6)
     lonShowLbl['text'] = round(telemetry_info['lon'], 6)
 
-    # Actualizar botones según el estado real del dron
     actualizarBotonesSegunEstado()
 
 
 def actualizarBotonesSegunEstado():
-    """Sincroniza el aspecto de todos los botones con el estado actual del dron.
-    Útil al conectarse con el dron ya en vuelo o armado."""
     global _enTransicion
-    # Si hay una transición visual en curso (callback mostrando mensaje), no sobreescribir
     if _enTransicion:
         return
 
     state = dron.state
 
-    # Conectar
     if state == 'disconnected':
-        connectBtn['text'] = 'Conectar'
-        connectBtn['fg'] = 'black'
-        connectBtn['bg'] = 'dark orange'
+        _habilitarBtn(connectBtn, 'Conectar')
     else:
-        connectBtn['text'] = 'Conectado'
-        connectBtn['fg'] = 'white'
-        connectBtn['bg'] = 'green'
+        _activarBtn(connectBtn, 'Conectado')
 
-    # Armar: muestra estado intermedio "Armando..." si corresponde
-    if state == 'arming':
-        armBtn['text'] = 'Armando...'
-        armBtn['fg'] = 'black'
-        armBtn['bg'] = 'yellow'
+    if state == 'connected':
+        _habilitarBtn(disconnectBtn, 'Desconectar')
+    else:
+        _deshabilitarBtn(disconnectBtn, 'Desconectar')
+
+    if state == 'connected':
+        _habilitarBtn(armBtn, 'Armar')
+    elif state == 'arming':
+        _procesoBtn(armBtn, 'Armando...')
     elif state in ('armed', 'takingOff', 'flying', 'returning', 'landing'):
-        armBtn['text'] = 'Armado'
-        armBtn['fg'] = 'white'
-        armBtn['bg'] = 'green'
+        _activarBtn(armBtn, 'Armado')
     else:
-        # state == 'connected' o 'disconnected': el dron no está armado
-        armBtn['text'] = 'Armar'
-        armBtn['fg'] = 'black'
-        armBtn['bg'] = 'dark orange'
+        _deshabilitarBtn(armBtn, 'Armar')
 
-    # Despegar: refleja si está en el aire, despegando o en tierra
-    if state == 'takingOff':
-        takeOffBtn['text'] = 'Despegando...'
-        takeOffBtn['fg'] = 'black'
-        takeOffBtn['bg'] = 'yellow'
-    elif state == 'flying':
-        takeOffBtn['text'] = 'En el aire ✈'
-        takeOffBtn['fg'] = 'white'
-        takeOffBtn['bg'] = 'green'
-    elif state == 'returning':
-        takeOffBtn['text'] = 'En el aire ✈'
-        takeOffBtn['fg'] = 'white'
-        takeOffBtn['bg'] = 'green'
+    if state == 'armed':
+        _habilitarBtn(disarmBtn, 'Desarmar')
+    else:
+        _deshabilitarBtn(disarmBtn, 'Desarmar')
+
+    if state == 'armed':
+        _habilitarBtn(takeOffBtn, 'Despegar')
+    elif state == 'takingOff':
+        _procesoBtn(takeOffBtn, 'Despegando...')
+    elif state in ('flying', 'returning'):
+        _activarBtn(takeOffBtn, 'En el aire ✈')
     elif state == 'landing':
-        takeOffBtn['text'] = 'Aterrizando...'
-        takeOffBtn['fg'] = 'black'
-        takeOffBtn['bg'] = 'yellow'
+        _procesoBtn(takeOffBtn, 'Aterrizando...')
     else:
-        # connected / disconnected / armed → en tierra
-        takeOffBtn['text'] = 'Despegar'
-        takeOffBtn['fg'] = 'black'
-        takeOffBtn['bg'] = 'dark orange'
+        _deshabilitarBtn(takeOffBtn, 'Despegar')
 
-    # Aterrizar
-    if state == 'landing':
-        landBtn['text'] = 'Aterrizando...'
-        landBtn['fg'] = 'black'
-        landBtn['bg'] = 'yellow'
+    if state in ('flying', 'returning'):
+        _habilitarBtn(landBtn, 'Aterrizar')
+    elif state == 'landing':
+        _procesoBtn(landBtn, 'Aterrizando...')
     else:
-        landBtn['text'] = 'Aterrizar'
-        landBtn['fg'] = 'black'
-        landBtn['bg'] = 'dark orange'
+        _deshabilitarBtn(landBtn, 'Aterrizar')
 
-    # RTL
-    if state == 'returning':
-        RTLBtn['text'] = 'Volviendo a casa...'
-        RTLBtn['fg'] = 'black'
-        RTLBtn['bg'] = 'yellow'
+    if state == 'flying':
+        _habilitarBtn(RTLBtn, 'RTL')
+    elif state == 'returning':
+        _procesoBtn(RTLBtn, 'Volviendo a casa...')
     else:
-        RTLBtn['text'] = 'RTL'
-        RTLBtn['fg'] = 'black'
-        RTLBtn['bg'] = 'dark orange'
+        _deshabilitarBtn(RTLBtn, 'RTL')
+
+    if state == 'flying':
+        if rotateCWBtn['bg'] != COLOR_EN_PROCESO:
+            _habilitarBtn(rotateCWBtn, '↻ 90° CW')
+        if rotateCCWBtn['bg'] != COLOR_EN_PROCESO:
+            _habilitarBtn(rotateCCWBtn, '↺ 90° CCW')
+    else:
+        _deshabilitarBtn(rotateCWBtn, '↻ 90° CW')
+        _deshabilitarBtn(rotateCCWBtn, '↺ 90° CCW')
+
+    for b in navBtns:
+        if state == 'flying':
+            if b['bg'] != COLOR_ACTIVO:
+                if b == StopBtn:
+                    _habilitarBtn(b, bg=COLOR_STOP, fg=FG_ACTIVO)
+                else:
+                    _habilitarBtn(b)
+        else:
+            _deshabilitarBtn(b)
+
+    if state == 'flying':
+        if gotoBtn['bg'] != COLOR_EN_PROCESO:
+            _habilitarBtn(gotoBtn, 'Ir a posición')
+    else:
+        if gotoBtn['bg'] != COLOR_EN_PROCESO:
+            _deshabilitarBtn(gotoBtn, 'Ir a posición')
+
+    if state == 'flying':
+        if applyAltBtn['bg'] != COLOR_EN_PROCESO:
+            _habilitarBtn(applyAltBtn, 'Aplicar altitud')
+    else:
+        if applyAltBtn['bg'] != COLOR_EN_PROCESO:
+            _deshabilitarBtn(applyAltBtn, 'Aplicar altitud')
+
+    if state != 'disconnected':
+        _habilitarBtn(StartTelemBtn, '▶ Iniciar telemetría')
+        _habilitarBtn(StopTelemBtn, '■ Parar telemetría')
+    else:
+        _deshabilitarBtn(StartTelemBtn, '▶ Iniciar telemetría')
+        _deshabilitarBtn(StopTelemBtn, '■ Parar telemetría')
 
 
-def connect ():
+# ══════════════════════════════════════════
+#  ACCIONES
+# ══════════════════════════════════════════
+
+def connect():
     global dron, speedSldr
     connection_string = 'tcp:127.0.0.1:5763'
     baud = 115200
     result = dron.connect(connection_string, baud)
     if result:
         speedSldr.set(1)
-        # Actualizamos todos los botones según el estado real tras conectar
-        # (el dron puede ya estar armado o en vuelo)
         actualizarBotonesSegunEstado()
     else:
         messagebox.showwarning("Aviso", "Ya está conectado o no se puede conectar.")
 
-
 def disconnect():
     global dron
+    if dron.state != 'connected':
+        messagebox.showwarning("Aviso",
+            "El dron debe estar en estado 'connected' para desconectar.\nEstado actual: " + dron.state)
+        return
     result = dron.disconnect()
     if result:
-        connectBtn['text'] = 'Conectar'
-        connectBtn['fg'] = 'black'
-        connectBtn['bg'] = 'dark orange'
-        armBtn['text'] = 'Armar'
-        armBtn['fg'] = 'black'
-        armBtn['bg'] = 'dark orange'
-        disconnectBtn['text'] = 'Desconectado'
-        disconnectBtn['fg'] = 'white'
-        disconnectBtn['bg'] = 'green'
+        actualizarBotonesSegunEstado()
+        _activarBtn(disconnectBtn, 'Desconectado')
         resetBtn(disconnectBtn, 'Desconectar', 2000)
-    else:
-        messagebox.showwarning("Aviso", "El dron debe estar en estado 'connected' para desconectar.\nEstado actual: " + dron.state)
-
 
 def onArmError(msg):
-    """Callback cuando el armado falla (no ready to arm, pre-arm checks, etc.)"""
+    armBtn['state'] = 'normal'
     armBtn['text'] = 'Armar'
-    armBtn['fg'] = 'black'
-    armBtn['bg'] = 'dark orange'
-    messagebox.showerror("Error al armar", "No se pudo armar el dron.\n\nMotivo: " + msg +
-                         "\n\nComprueba que el dron esté listo para armar (GPS fix, pre-arm checks, etc.)")
+    armBtn['fg'] = FG_NORMAL
+    armBtn['bg'] = COLOR_DISPONIBLE
+    messagebox.showerror("Error al armar", "No se pudo armar.\n\nMotivo: " + msg)
 
 def onArmed():
-    """Callback cuando el armado se completa correctamente."""
-    armBtn['text'] = 'Armado'
-    armBtn['fg'] = 'white'
-    armBtn['bg'] = 'green'
+    actualizarBotonesSegunEstado()
 
 def arm():
     global dron
     if dron.state != 'connected':
-        messagebox.showwarning("Aviso", "El dron debe estar conectado (y no armado) para armar.\nEstado actual: " + dron.state)
+        messagebox.showwarning("Aviso",
+            "El dron debe estar conectado para armar.\nEstado actual: " + dron.state)
         return
-    # Ponemos el botón en amarillo mientras espera confirmación
-    armBtn['text'] = 'Armando...'
-    armBtn['fg'] = 'black'
-    armBtn['bg'] = 'yellow'
+    _procesoBtn(armBtn, 'Armando...')
     result = dron.arm(blocking=False, callback=onArmed, error_callback=onArmError)
     if not result:
-        armBtn['text'] = 'Armar'
-        armBtn['fg'] = 'black'
-        armBtn['bg'] = 'dark orange'
-        messagebox.showerror("Error", "No se pudo iniciar el armado.\nEstado actual: " + dron.state)
-
+        _habilitarBtn(armBtn, 'Armar')
+        messagebox.showerror("Error", "No se pudo iniciar el armado.")
 
 def disarm():
-    """Desarmar el dron enviando comando de desarme."""
     global dron
-    if dron.state == 'armed':
-        # Enviar comando de desarme directamente
-        from pymavlink import mavutil
-        dron.vehicle.mav.command_long_send(
-            dron.vehicle.target_system, dron.vehicle.target_component,
-            mavutil.mavlink.MAV_CMD_COMPONENT_ARM_DISARM, 0, 0, 0, 0, 0, 0, 0, 0)
-        dron.state = 'connected'
-        armBtn['text'] = 'Armar'
-        armBtn['fg'] = 'black'
-        armBtn['bg'] = 'dark orange'
-        disarmBtn['text'] = 'Desarmado'
-        disarmBtn['fg'] = 'white'
-        disarmBtn['bg'] = 'green'
-        resetBtn(disarmBtn, 'Desarmar', 2000)
-    else:
-        messagebox.showwarning("Aviso", "El dron debe estar armado (sin volar) para desarmar.\nEstado actual: " + dron.state)
-
+    if dron.state != 'armed':
+        messagebox.showwarning("Aviso",
+            "El dron debe estar armado (sin volar) para desarmar.\nEstado actual: " + dron.state)
+        return
+    from pymavlink import mavutil
+    dron.vehicle.mav.command_long_send(
+        dron.vehicle.target_system, dron.vehicle.target_component,
+        mavutil.mavlink.MAV_CMD_COMPONENT_ARM_DISARM, 0, 0, 0, 0, 0, 0, 0, 0)
+    dron.state = 'connected'
+    actualizarBotonesSegunEstado()
+    _activarBtn(disarmBtn, 'Desarmado')
+    resetBtn(disarmBtn, 'Desarmar', 2000)
 
 def inTheAir():
-    """Callback cuando el dron ha alcanzado la altitud de despegue."""
     global _enTransicion
     _enTransicion = False
-    # Actualizar el botón inmediatamente al completar el despegue
-    takeOffBtn['text'] = 'En el aire ✈'
-    takeOffBtn['fg'] = 'white'
-    takeOffBtn['bg'] = 'green'
+    actualizarBotonesSegunEstado()
 
-
-def takeoff ():
+def takeoff():
     global dron, altSldr, _enTransicion
     if _enTransicion:
-        return  # Evitar doble clic durante transición
-    if dron.state != 'armed':
-        messagebox.showwarning("Aviso", "El dron debe estar armado para despegar.\nEstado actual: " + dron.state)
         return
-    # Usamos la altitud del slider en lugar de un valor fijo
+    if dron.state != 'armed':
+        messagebox.showwarning("Aviso",
+            "El dron debe estar armado para despegar.\nEstado actual: " + dron.state)
+        return
     alt = int(altSldr.get())
-    _enTransicion = True  # Bloquear durante despegue
+    _enTransicion = True
     result = dron.takeOff(alt, blocking=False, callback=inTheAir)
     if result:
-        takeOffBtn['text'] = 'Despegando...'
-        takeOffBtn['fg'] = 'black'
-        takeOffBtn['bg'] = 'yellow'
+        _procesoBtn(takeOffBtn, 'Despegando...')
     else:
         _enTransicion = False
-        messagebox.showerror("Error", "No se pudo despegar.\nEstado actual: " + dron.state)
+        messagebox.showerror("Error", "No se pudo despegar.")
 
+_landedCallbackFired = False
 
 def onLanded():
-    """Callback cuando el dron ha aterrizado."""
-    global _enTransicion
-    _enTransicion = True
-    landBtn['text'] = 'Aterrizado ✓'
-    landBtn['fg'] = 'white'
-    landBtn['bg'] = 'green'
-    armBtn['text'] = 'Armar'
-    armBtn['fg'] = 'black'
-    armBtn['bg'] = 'dark orange'
-    takeOffBtn['text'] = 'Despegar'
-    takeOffBtn['fg'] = 'black'
-    takeOffBtn['bg'] = 'dark orange'
-    resetBtn(landBtn, 'Aterrizar', 2000)
+    """Callback llamado desde hilo secundario cuando el dron ha aterrizado.
+    Usa ventana.after() para ejecutar cambios de UI en el hilo principal de Tkinter."""
+    def _ui():
+        global _enTransicion, _landedCallbackFired
+        if _landedCallbackFired:
+            return
+        _landedCallbackFired = True
+        _enTransicion = False
+        _activarBtn(landBtn, 'Aterrizado ✓')
+        resetBtn(landBtn, 'Aterrizar', 2000)
+    ventana.after(0, _ui)
 
+def _monitorLanding():
+    """Comprueba cada 500 ms si el dron se ha desarmado mientras aterriza
+    (p.ej. impacto en tejado). Si es así, dispara onLanded manualmente."""
+    global _landedCallbackFired
+    if dron.state != 'landing' or _landedCallbackFired:
+        return  # ya aterrizó o ya no está aterrizando → parar el monitor
+    try:
+        from pymavlink import mavutil
+        msg = dron.vehicle.recv_match(type='HEARTBEAT', blocking=False)
+        if msg and not (msg.base_mode & mavutil.mavlink.MAV_MODE_FLAG_SAFETY_ARMED):
+            # El dron se ha desarmado → está en tierra
+            onLanded()
+            return
+    except Exception:
+        pass
+    ventana.after(500, _monitorLanding)
 
-def land ():
-    global dron, previousBtn, gotoBtn, _enTransicion
+def land():
+    global dron, previousBtn, _enTransicion, _landedCallbackFired
     if _enTransicion:
-        return  # Evitar doble clic durante transición
-    if dron.state not in ('flying', 'returning'):
-        messagebox.showwarning("Aviso", "El dron debe estar volando para aterrizar.\nEstado actual: " + dron.state)
         return
-
-    # Detener navegación direccional si está activa
-    if previousBtn and previousBtn['bg'] == 'green':
+    if dron.state not in ('flying', 'returning'):
+        messagebox.showwarning("Aviso",
+            "El dron debe estar volando para aterrizar.\nEstado actual: " + dron.state)
+        return
+    if previousBtn and previousBtn['bg'] == COLOR_ACTIVO:
         dron.go("Stop")
-
+    _landedCallbackFired = False
     result = dron.Land(blocking=False, callback=onLanded)
     if result:
-        _enTransicion = True  # Bloquear durante aterrizaje
-        landBtn['text'] = 'Aterrizando...'
-        landBtn['fg'] = 'black'
-        landBtn['bg'] = 'yellow'
-        # Resetear el botón goto si estaba navegando
-        if gotoBtn['text'] == 'Navegando...':
-            gotoBtn['text'] = 'Ir a posición'
-            gotoBtn['fg'] = 'black'
-            gotoBtn['bg'] = 'dark orange'
-        # Resetear el botón de dirección anterior si estaba activo
+        _enTransicion = True
+        _procesoBtn(landBtn, 'Aterrizando...')
+        if gotoBtn['bg'] == COLOR_EN_PROCESO:
+            _habilitarBtn(gotoBtn, 'Ir a posición')
         if previousBtn:
-            previousBtn['fg'] = 'black'
-            previousBtn['bg'] = 'dark orange'
+            _habilitarBtn(previousBtn)
             previousBtn = None
-
+        ventana.after(500, _monitorLanding)  # arranca el monitor de seguridad
 
 def onRTLComplete():
-    """Callback cuando el RTL ha terminado (dron en tierra)."""
-    global _enTransicion
-    _enTransicion = True
-    RTLBtn['text'] = 'Aterrizado ✓'
-    RTLBtn['fg'] = 'white'
-    RTLBtn['bg'] = 'green'
-    armBtn['text'] = 'Armar'
-    armBtn['fg'] = 'black'
-    armBtn['bg'] = 'dark orange'
-    takeOffBtn['text'] = 'Despegar'
-    takeOffBtn['fg'] = 'black'
-    takeOffBtn['bg'] = 'dark orange'
-    resetBtn(RTLBtn, 'RTL', 2000)
-
+    """Callback llamado desde hilo secundario cuando el RTL ha completado.
+    Usa ventana.after() para ejecutar cambios de UI en el hilo principal de Tkinter."""
+    def _ui():
+        global _enTransicion
+        _enTransicion = False
+        _activarBtn(RTLBtn, 'Aterrizado ✓')
+        resetBtn(RTLBtn, 'RTL', 2000)
+    ventana.after(0, _ui)
 
 def RTL():
-    global dron, previousBtn, gotoBtn, _enTransicion
+    global dron, previousBtn, _enTransicion
     if _enTransicion:
-        return  # Evitar doble clic durante transición
-    if dron.state != 'flying':
-        messagebox.showwarning("Aviso", "El dron debe estar volando para RTL.\nEstado actual: " + dron.state)
         return
-
-    # Detener navegación direccional si está activa
-    if previousBtn and previousBtn['bg'] == 'green':
+    if dron.state != 'flying':
+        messagebox.showwarning("Aviso",
+            "El dron debe estar volando para RTL.\nEstado actual: " + dron.state)
+        return
+    if previousBtn and previousBtn['bg'] == COLOR_ACTIVO:
         dron.go("Stop")
-
     result = dron.RTL(blocking=False, callback=onRTLComplete)
     if result:
-        _enTransicion = True  # Bloquear durante RTL
-        RTLBtn['text'] = 'Volviendo a casa...'
-        RTLBtn['fg'] = 'black'
-        RTLBtn['bg'] = 'yellow'
-        # Resetear el botón goto si estaba navegando
-        if gotoBtn['text'] == 'Navegando...':
-            gotoBtn['text'] = 'Ir a posición'
-            gotoBtn['fg'] = 'black'
-            gotoBtn['bg'] = 'dark orange'
-        # Resetear el botón de dirección anterior si estaba activo
+        _enTransicion = True
+        _procesoBtn(RTLBtn, 'Volviendo a casa...')
+        if gotoBtn['bg'] == COLOR_EN_PROCESO:
+            _habilitarBtn(gotoBtn, 'Ir a posición')
         if previousBtn:
-            previousBtn['fg'] = 'black'
-            previousBtn['bg'] = 'dark orange'
+            _habilitarBtn(previousBtn)
             previousBtn = None
 
-def go (direction, btn):
-    global dron, previousBtn, gotoBtn
+
+def go(direction, btn):
+    """Cambia la dirección de navegación.
+    Primera vez: dron.go() arranca el thread.
+    Después: _rebuildCmd() actualiza y envía inmediatamente."""
+    global dron, previousBtn
+    if dron.state != 'flying':
+        return
+
     if previousBtn:
-        previousBtn['fg'] = 'black'
-        previousBtn['bg'] = 'dark orange'
+        _habilitarBtn(previousBtn)
 
-    dron.go(direction)
-    btn['fg'] = 'white'
-    btn['bg'] = 'green'
-    previousBtn = btn
+    dron.direction = direction
 
-    # Resetear el botón goto si estaba navegando
-    if gotoBtn['text'] == 'Navegando...':
-        gotoBtn['text'] = 'Ir a posición'
-        gotoBtn['fg'] = 'black'
-        gotoBtn['bg'] = 'dark orange'
+    if dron.going:
+        # Thread ya corriendo → rebuild + envío inmediato, sin unfixHeading
+        _rebuildCmd()
+    else:
+        # Primera vez → arrancar thread
+        dron.go(direction)
+
+    if direction == "Stop":
+        btn['state'] = 'normal'
+        btn['bg'] = COLOR_STOP
+        btn['fg'] = FG_ACTIVO
+        previousBtn = None
+    else:
+        btn['state'] = 'normal'
+        btn['bg'] = COLOR_ACTIVO
+        btn['fg'] = FG_ACTIVO
+        previousBtn = btn
+
+    if gotoBtn['bg'] == COLOR_EN_PROCESO:
+        _habilitarBtn(gotoBtn, 'Ir a posición')
 
 
 def startTelem():
-    global dron
+    if dron.state == 'disconnected':
+        return
     dron.send_telemetry_info(showTelemetryInfo)
 
 def stopTelem():
-    global dron
+    if dron.state == 'disconnected':
+        return
     dron.stop_sending_telemetry_info()
 
-def changeHeading (event):
-    global dron, gradesSldr
-    dron.changeHeading(int(gradesSldr.get()))
+def changeHeading(event):
+    if dron.state == 'flying':
+        dron.changeHeading(int(gradesSldr.get()), blocking=False)
 
-def changeNavSpeed (event):
+def changeNavSpeed(event):
     global dron, speedSldr
-    dron.changeNavSpeed(float(speedSldr.get()))
+    if dron.state not in ('flying', 'returning'):
+        return
+    dron.navSpeed = float(speedSldr.get())
+    if dron.going and dron.direction != 'Stop':
+        _rebuildCmd()
 
-def altitudeReached():
-    changeAltBtn['text'] = 'Altitud alcanzada'
-    changeAltBtn['fg'] = 'white'
-    changeAltBtn['bg'] = 'green'
-    resetBtn(changeAltBtn, 'Cambiar altitud', 3000)
-
-def changeAlt():
-    global dron, altSldr, changeAltBtn
+def applyAltitude():
+    global dron, altSldr, previousBtn, applyAltBtn
+    if dron.state != 'flying':
+        return
     alt = int(altSldr.get())
-    dron.change_altitude(alt, blocking=False, callback=altitudeReached)
-    changeAltBtn['text'] = 'Cambiando altitud...'
-    changeAltBtn['fg'] = 'black'
-    changeAltBtn['bg'] = 'yellow'
+    currentDirection = None
+    if dron.going and dron.direction != 'Stop':
+        currentDirection = dron.direction
+        dron.go("Stop")
+    _procesoBtn(applyAltBtn, 'Cambiando...')
+
+    def onAltReached():
+        if currentDirection and dron.state == 'flying':
+            dron.go(currentDirection)
+        _activarBtn(applyAltBtn, 'Altitud ✓')
+        resetBtn(applyAltBtn, 'Aplicar altitud', 2000)
+
+    result = dron.change_altitude(alt, blocking=False, callback=onAltReached)
+    if not result:
+        if currentDirection and dron.state == 'flying':
+            dron.go(currentDirection)
+        _habilitarBtn(applyAltBtn, 'Aplicar altitud')
 
 def gotoReached():
-    gotoBtn['text'] = 'Destino alcanzado'
-    gotoBtn['fg'] = 'white'
-    gotoBtn['bg'] = 'green'
+    _activarBtn(gotoBtn, 'Destino alcanzado')
     resetBtn(gotoBtn, 'Ir a posición', 3000)
 
 def gotoPosition():
-    global dron, gotoBtn, latEntry, lonEntry, altGotoEntry, previousBtn
+    global dron, gotoBtn, latEntry, lonEntry, previousBtn
     try:
         lat = float(latEntry.get())
         lon = float(lonEntry.get())
-        alt = float(altGotoEntry.get())
     except ValueError:
-        messagebox.showerror("Error", "Los campos Lat, Lon y Alt deben ser números válidos.")
+        messagebox.showerror("Error", "Los campos Lat y Lon deben ser números válidos.")
         return
-
     if dron.state != 'flying':
-        messagebox.showwarning("Aviso", "El dron debe estar volando para ir a una posición.\nEstado actual: " + dron.state)
+        messagebox.showwarning("Aviso",
+            "El dron debe estar volando para ir a una posición.\nEstado actual: " + dron.state)
         return
-
+    alt = dron.alt if dron.alt is not None else 5
     dron.goto(lat, lon, alt, blocking=False, callback=gotoReached)
-    gotoBtn['text'] = 'Navegando...'
-    gotoBtn['fg'] = 'black'
-    gotoBtn['bg'] = 'yellow'
-    # Resetear el botón de dirección anterior si estaba activo
+    _procesoBtn(gotoBtn, 'Navegando...')
     if previousBtn:
-        previousBtn['fg'] = 'black'
-        previousBtn['bg'] = 'dark orange'
+        _habilitarBtn(previousBtn)
         previousBtn = None
 
 def rotateFinished():
     global previousBtn
-    rotateCWBtn['text'] = '↻ 90° CW'
-    rotateCWBtn['fg'] = 'black'
-    rotateCWBtn['bg'] = 'dark orange'
-    rotateCCWBtn['text'] = '↺ 90° CCW'
-    rotateCCWBtn['fg'] = 'black'
-    rotateCCWBtn['bg'] = 'dark orange'
-    # Si el último botón activo era uno de rotar, lo limpiamos
+    _habilitarBtn(rotateCWBtn, '↻ 90° CW')
+    _habilitarBtn(rotateCCWBtn, '↺ 90° CCW')
     if previousBtn in (rotateCWBtn, rotateCCWBtn):
         previousBtn = None
 
 def rotateCW():
-    global dron, rotateCWBtn
     if dron.state != 'flying':
-        messagebox.showwarning("Aviso", "El dron debe estar volando para rotar.\nEstado actual: " + dron.state)
         return
-    rotateCWBtn['text'] = 'Rotando CW...'
-    rotateCWBtn['fg'] = 'white'
-    rotateCWBtn['bg'] = 'green'
+    _procesoBtn(rotateCWBtn, 'Rotando CW...')
     dron.rotate(90, direction='cw', blocking=False, callback=rotateFinished)
 
 def rotateCCW():
-    global dron, rotateCCWBtn
     if dron.state != 'flying':
-        messagebox.showwarning("Aviso", "El dron debe estar volando para rotar.\nEstado actual: " + dron.state)
         return
-    rotateCCWBtn['text'] = 'Rotando CCW...'
-    rotateCCWBtn['fg'] = 'white'
-    rotateCCWBtn['bg'] = 'green'
+    _procesoBtn(rotateCCWBtn, 'Rotando CCW...')
     dron.rotate(90, direction='ccw', blocking=False, callback=rotateFinished)
 
 
+# ══════════════════════════════════════════
+#  CREAR VENTANA
+# ══════════════════════════════════════════
 
 def crear_ventana():
     global dron
@@ -442,152 +540,131 @@ def crear_ventana():
     global connectBtn, armBtn, takeOffBtn, landBtn, RTLBtn
     global disconnectBtn, disarmBtn
     global previousBtn
-    global altSldr, changeAltBtn
-    global latEntry, lonEntry, altGotoEntry, gotoBtn
+    global altSldr, applyAltBtn
+    global latEntry, lonEntry, gotoBtn
     global rotateCWBtn, rotateCCWBtn
+    global NWBtn, NoBtn, NEBtn, WeBtn, StopBtn, EaBtn, SWBtn, SoBtn, SEBtn
+    global navBtns
+    global StartTelemBtn, StopTelemBtn
 
     dron = Dron()
-
     previousBtn = None
 
     ventana = tk.Tk()
     ventana.title("Dashboard con conexión directa")
-    ventana.geometry("780x950")
-    ventana.minsize(700, 850)
+    ventana.geometry("600x750")
+    ventana.minsize(500, 700)
 
-    # 12 filas, 4 columnas
     for i in range(12):
         ventana.rowconfigure(i, weight=1)
     for i in range(4):
         ventana.columnconfigure(i, weight=1)
 
-    # ---- Fila 0: Conectar | Armar | Despegar | Desconectar ----
-    connectBtn = tk.Button(ventana, text="Conectar", bg="dark orange", font=("Arial", 10, "bold"), command=connect)
-    connectBtn.grid(row=0, column=0, padx=3, pady=3, sticky=tk.N + tk.S + tk.E + tk.W)
+    btn_font = ("Arial", 10, "bold")
 
-    armBtn = tk.Button(ventana, text="Armar", bg="dark orange", font=("Arial", 10, "bold"), command=arm)
-    armBtn.grid(row=0, column=1, padx=3, pady=3, sticky=tk.N + tk.S + tk.E + tk.W)
+    connectBtn = tk.Button(ventana, text="Conectar", bg=COLOR_DISPONIBLE, fg=FG_NORMAL,
+                           font=btn_font, command=connect)
+    connectBtn.grid(row=0, column=0, padx=3, pady=3, sticky=tk.N+tk.S+tk.E+tk.W)
 
-    takeOffBtn = tk.Button(ventana, text="Despegar", bg="dark orange", font=("Arial", 10, "bold"), command=takeoff)
-    takeOffBtn.grid(row=0, column=2, padx=3, pady=3, sticky=tk.N + tk.S + tk.E + tk.W)
+    armBtn = tk.Button(ventana, text="Armar", font=btn_font, command=arm)
+    armBtn.grid(row=0, column=1, padx=3, pady=3, sticky=tk.N+tk.S+tk.E+tk.W)
+    _deshabilitarBtn(armBtn, 'Armar')
 
-    disconnectBtn = tk.Button(ventana, text="Desconectar", bg="dark orange", font=("Arial", 10, "bold"), command=disconnect)
-    disconnectBtn.grid(row=0, column=3, padx=3, pady=3, sticky=tk.N + tk.S + tk.E + tk.W)
+    takeOffBtn = tk.Button(ventana, text="Despegar", font=btn_font, command=takeoff)
+    takeOffBtn.grid(row=0, column=2, padx=3, pady=3, sticky=tk.N+tk.S+tk.E+tk.W)
+    _deshabilitarBtn(takeOffBtn, 'Despegar')
 
-    # ---- Fila 1: Aterrizar | RTL | Rotar | Desarmar ----
-    landBtn = tk.Button(ventana, text="Aterrizar", bg="dark orange", font=("Arial", 10, "bold"), command=land)
-    landBtn.grid(row=1, column=0, padx=3, pady=3, sticky=tk.N + tk.S + tk.E + tk.W)
+    disconnectBtn = tk.Button(ventana, text="Desconectar", font=btn_font, command=disconnect)
+    disconnectBtn.grid(row=0, column=3, padx=3, pady=3, sticky=tk.N+tk.S+tk.E+tk.W)
+    _deshabilitarBtn(disconnectBtn, 'Desconectar')
 
-    RTLBtn = tk.Button(ventana, text="RTL", bg="dark orange", font=("Arial", 10, "bold"), command=RTL)
-    RTLBtn.grid(row=1, column=1, padx=3, pady=3, sticky=tk.N + tk.S + tk.E + tk.W)
+    landBtn = tk.Button(ventana, text="Aterrizar", font=btn_font, command=land)
+    landBtn.grid(row=1, column=0, padx=3, pady=3, sticky=tk.N+tk.S+tk.E+tk.W)
+    _deshabilitarBtn(landBtn, 'Aterrizar')
 
-    # Rotar
+    RTLBtn = tk.Button(ventana, text="RTL", font=btn_font, command=RTL)
+    RTLBtn.grid(row=1, column=1, padx=3, pady=3, sticky=tk.N+tk.S+tk.E+tk.W)
+    _deshabilitarBtn(RTLBtn, 'RTL')
+
     rotateFrame = tk.Frame(ventana)
-    rotateFrame.grid(row=1, column=2, padx=3, pady=3, sticky=tk.N + tk.S + tk.E + tk.W)
+    rotateFrame.grid(row=1, column=2, padx=3, pady=3, sticky=tk.N+tk.S+tk.E+tk.W)
     rotateFrame.columnconfigure(0, weight=1)
     rotateFrame.columnconfigure(1, weight=1)
     rotateFrame.rowconfigure(0, weight=1)
 
-    rotateCWBtn = tk.Button(rotateFrame, text="↻ 90° CW", bg="dark orange", font=("Arial", 9), command=rotateCW)
-    rotateCWBtn.grid(row=0, column=0, padx=1, sticky=tk.N + tk.S + tk.E + tk.W)
+    rotateCWBtn = tk.Button(rotateFrame, text="↻ 90° CW", font=("Arial", 9), command=rotateCW)
+    rotateCWBtn.grid(row=0, column=0, padx=1, sticky=tk.N+tk.S+tk.E+tk.W)
+    _deshabilitarBtn(rotateCWBtn, '↻ 90° CW')
 
-    rotateCCWBtn = tk.Button(rotateFrame, text="↺ 90° CCW", bg="dark orange", font=("Arial", 9), command=rotateCCW)
-    rotateCCWBtn.grid(row=0, column=1, padx=1, sticky=tk.N + tk.S + tk.E + tk.W)
+    rotateCCWBtn = tk.Button(rotateFrame, text="↺ 90° CCW", font=("Arial", 9), command=rotateCCW)
+    rotateCCWBtn.grid(row=0, column=1, padx=1, sticky=tk.N+tk.S+tk.E+tk.W)
+    _deshabilitarBtn(rotateCCWBtn, '↺ 90° CCW')
 
-    disarmBtn = tk.Button(ventana, text="Desarmar", bg="dark orange", font=("Arial", 10, "bold"), command=disarm)
-    disarmBtn.grid(row=1, column=3, padx=3, pady=3, sticky=tk.N + tk.S + tk.E + tk.W)
+    disarmBtn = tk.Button(ventana, text="Desarmar", font=btn_font, command=disarm)
+    disarmBtn.grid(row=1, column=3, padx=3, pady=3, sticky=tk.N+tk.S+tk.E+tk.W)
+    _deshabilitarBtn(disarmBtn, 'Desarmar')
 
-    # ---- Fila 2: Slider heading (ocupa 4 columnas) ----
     gradesSldr = tk.Scale(ventana, label="Heading (grados):", resolution=5, from_=0, to=360,
                           tickinterval=45, orient=tk.HORIZONTAL, length=400, font=("Arial", 9))
-    gradesSldr.grid(row=2, column=0, columnspan=4, padx=10, pady=5, sticky=tk.E + tk.W)
+    gradesSldr.grid(row=2, column=0, columnspan=4, padx=10, pady=5, sticky=tk.E+tk.W)
     gradesSldr.bind("<ButtonRelease-1>", changeHeading)
 
-    # ---- Fila 3: Navegación (ocupa 4 columnas) ----
-    navFrame = tk.LabelFrame(ventana, text="Navegación", font=("Arial", 10, "bold"))
-    navFrame.grid(row=3, column=0, columnspan=4, padx=30, pady=5, sticky=tk.N + tk.S + tk.E + tk.W)
-
+    navFrame = tk.LabelFrame(ventana, text="Navegación", font=btn_font)
+    navFrame.grid(row=3, column=0, columnspan=4, padx=30, pady=5, sticky=tk.N+tk.S+tk.E+tk.W)
     for r in range(3):
         navFrame.rowconfigure(r, weight=1)
-    for c in range(5):
+    for c in range(3):
         navFrame.columnconfigure(c, weight=1)
 
     nav_font = ("Arial", 10, "bold")
-    NWBtn = tk.Button(navFrame, text="NW", bg="dark orange", font=nav_font,
-                        command=lambda: go("NorthWest", NWBtn))
-    NWBtn.grid(row=0, column=0, padx=2, pady=2, sticky=tk.N + tk.S + tk.E + tk.W)
 
-    NoBtn = tk.Button(navFrame, text="N", bg="dark orange", font=nav_font,
-                        command=lambda: go("North", NoBtn))
-    NoBtn.grid(row=0, column=1, padx=2, pady=2, sticky=tk.N + tk.S + tk.E + tk.W)
+    NWBtn = tk.Button(navFrame, text="NW", font=nav_font, command=lambda: go("NorthWest", NWBtn))
+    NWBtn.grid(row=0, column=0, padx=2, pady=2, sticky=tk.N+tk.S+tk.E+tk.W)
+    NoBtn = tk.Button(navFrame, text="N", font=nav_font, command=lambda: go("North", NoBtn))
+    NoBtn.grid(row=0, column=1, padx=2, pady=2, sticky=tk.N+tk.S+tk.E+tk.W)
+    NEBtn = tk.Button(navFrame, text="NE", font=nav_font, command=lambda: go("NorthEast", NEBtn))
+    NEBtn.grid(row=0, column=2, padx=2, pady=2, sticky=tk.N+tk.S+tk.E+tk.W)
+    WeBtn = tk.Button(navFrame, text="W", font=nav_font, command=lambda: go("West", WeBtn))
+    WeBtn.grid(row=1, column=0, padx=2, pady=2, sticky=tk.N+tk.S+tk.E+tk.W)
+    StopBtn = tk.Button(navFrame, text="STOP", font=nav_font, command=lambda: go("Stop", StopBtn))
+    StopBtn.grid(row=1, column=1, padx=2, pady=2, sticky=tk.N+tk.S+tk.E+tk.W)
+    EaBtn = tk.Button(navFrame, text="E", font=nav_font, command=lambda: go("East", EaBtn))
+    EaBtn.grid(row=1, column=2, padx=2, pady=2, sticky=tk.N+tk.S+tk.E+tk.W)
+    SWBtn = tk.Button(navFrame, text="SW", font=nav_font, command=lambda: go("SouthWest", SWBtn))
+    SWBtn.grid(row=2, column=0, padx=2, pady=2, sticky=tk.N+tk.S+tk.E+tk.W)
+    SoBtn = tk.Button(navFrame, text="S", font=nav_font, command=lambda: go("South", SoBtn))
+    SoBtn.grid(row=2, column=1, padx=2, pady=2, sticky=tk.N+tk.S+tk.E+tk.W)
+    SEBtn = tk.Button(navFrame, text="SE", font=nav_font, command=lambda: go("SouthEast", SEBtn))
+    SEBtn.grid(row=2, column=2, padx=2, pady=2, sticky=tk.N+tk.S+tk.E+tk.W)
 
-    NEBtn = tk.Button(navFrame, text="NE", bg="dark orange", font=nav_font,
-                        command=lambda: go("NorthEast", NEBtn))
-    NEBtn.grid(row=0, column=2, padx=2, pady=2, sticky=tk.N + tk.S + tk.E + tk.W)
+    navBtns = [NWBtn, NoBtn, NEBtn, WeBtn, StopBtn, EaBtn, SWBtn, SoBtn, SEBtn]
+    for b in navBtns:
+        _deshabilitarBtn(b)
 
-    # Botón subir a la derecha de la cuadrícula
-    UpBtn = tk.Button(navFrame, text="▲ Subir", bg="SteelBlue1", fg="white", font=nav_font,
-                        command=lambda: go("Up", UpBtn))
-    UpBtn.grid(row=0, column=3, columnspan=2, padx=2, pady=2, sticky=tk.N + tk.S + tk.E + tk.W)
-
-    WeBtn = tk.Button(navFrame, text="W", bg="dark orange", font=nav_font,
-                        command=lambda: go("West", WeBtn))
-    WeBtn.grid(row=1, column=0, padx=2, pady=2, sticky=tk.N + tk.S + tk.E + tk.W)
-
-    StopBtn = tk.Button(navFrame, text="STOP", bg="red", fg="white", font=nav_font,
-                        command=lambda: go("Stop", StopBtn))
-    StopBtn.grid(row=1, column=1, padx=2, pady=2, sticky=tk.N + tk.S + tk.E + tk.W)
-
-    EaBtn = tk.Button(navFrame, text="E", bg="dark orange", font=nav_font,
-                        command=lambda: go("East", EaBtn))
-    EaBtn.grid(row=1, column=2, padx=2, pady=2, sticky=tk.N + tk.S + tk.E + tk.W)
-
-    SWBtn = tk.Button(navFrame, text="SW", bg="dark orange", font=nav_font,
-                        command=lambda: go("SouthWest", SWBtn))
-    SWBtn.grid(row=2, column=0, padx=2, pady=2, sticky=tk.N + tk.S + tk.E + tk.W)
-
-    SoBtn = tk.Button(navFrame, text="S", bg="dark orange", font=nav_font,
-                        command=lambda: go("South", SoBtn))
-    SoBtn.grid(row=2, column=1, padx=2, pady=2, sticky=tk.N + tk.S + tk.E + tk.W)
-
-    SEBtn = tk.Button(navFrame, text="SE", bg="dark orange", font=nav_font,
-                        command=lambda: go("SouthEast", SEBtn))
-    SEBtn.grid(row=2, column=2, padx=2, pady=2, sticky=tk.N + tk.S + tk.E + tk.W)
-
-    # Botón bajar a la derecha de la cuadrícula
-    DownBtn = tk.Button(navFrame, text="▼ Bajar", bg="SteelBlue3", fg="white", font=nav_font,
-                        command=lambda: go("Down", DownBtn))
-    DownBtn.grid(row=2, column=3, columnspan=2, padx=2, pady=2, sticky=tk.N + tk.S + tk.E + tk.W)
-
-    # ---- Fila 4: Slider velocidad de navegación (4 columnas) ----
     speedSldr = tk.Scale(ventana, label="Velocidad nav. (m/s):", resolution=1, from_=0, to=20,
                          tickinterval=5, orient=tk.HORIZONTAL, length=400, font=("Arial", 9))
-    speedSldr.grid(row=4, column=0, columnspan=4, padx=10, pady=5, sticky=tk.E + tk.W)
+    speedSldr.grid(row=4, column=0, columnspan=4, padx=10, pady=5, sticky=tk.E+tk.W)
     speedSldr.bind("<ButtonRelease-1>", changeNavSpeed)
 
-    # ---- Fila 5: Slider altitud objetivo + botón cambiar altitud ----
     altSldr = tk.Scale(ventana, label="Altitud objetivo (m):", resolution=1, from_=1, to=50,
                        tickinterval=10, orient=tk.HORIZONTAL, length=300, font=("Arial", 9))
-    altSldr.grid(row=5, column=0, columnspan=3, padx=10, pady=5, sticky=tk.E + tk.W)
+    altSldr.grid(row=5, column=0, columnspan=3, padx=10, pady=5, sticky=tk.E+tk.W)
     altSldr.set(5)
 
-    changeAltBtn = tk.Button(ventana, text="Cambiar altitud", bg="dark orange", font=("Arial", 10, "bold"),
-                             command=changeAlt)
-    changeAltBtn.grid(row=5, column=3, padx=5, pady=5, sticky=tk.N + tk.S + tk.E + tk.W)
+    applyAltBtn = tk.Button(ventana, text="Aplicar altitud", font=btn_font, command=applyAltitude)
+    applyAltBtn.grid(row=5, column=3, padx=5, pady=5, sticky=tk.N+tk.S+tk.E+tk.W)
+    _deshabilitarBtn(applyAltBtn, 'Aplicar altitud')
 
-    # ---- Fila 6: Telemetría botones ----
-    StartTelemBtn = tk.Button(ventana, text="▶ Iniciar telemetría", bg="dark orange", font=("Arial", 10),
-                              command=startTelem)
-    StartTelemBtn.grid(row=6, column=0, columnspan=2, padx=3, pady=3, sticky=tk.N + tk.S + tk.E + tk.W)
+    StartTelemBtn = tk.Button(ventana, text="▶ Iniciar telemetría", font=("Arial", 10), command=startTelem)
+    StartTelemBtn.grid(row=6, column=0, columnspan=2, padx=3, pady=3, sticky=tk.N+tk.S+tk.E+tk.W)
+    _deshabilitarBtn(StartTelemBtn, '▶ Iniciar telemetría')
 
-    StopTelemBtn = tk.Button(ventana, text="■ Parar telemetría", bg="dark orange", font=("Arial", 10),
-                             command=stopTelem)
-    StopTelemBtn.grid(row=6, column=2, columnspan=2, padx=3, pady=3, sticky=tk.N + tk.S + tk.E + tk.W)
+    StopTelemBtn = tk.Button(ventana, text="■ Parar telemetría", font=("Arial", 10), command=stopTelem)
+    StopTelemBtn.grid(row=6, column=2, columnspan=2, padx=3, pady=3, sticky=tk.N+tk.S+tk.E+tk.W)
+    _deshabilitarBtn(StopTelemBtn, '■ Parar telemetría')
 
-    # ---- Fila 7: Panel de telemetría (4 columnas) ----
-    telemetryFrame = tk.LabelFrame(ventana, text="Telemetría", font=("Arial", 10, "bold"))
-    telemetryFrame.grid(row=7, column=0, columnspan=4, padx=10, pady=5, sticky=tk.N + tk.S + tk.E + tk.W)
-
+    telemetryFrame = tk.LabelFrame(ventana, text="Telemetría", font=btn_font)
+    telemetryFrame.grid(row=7, column=0, columnspan=4, padx=10, pady=5, sticky=tk.N+tk.S+tk.E+tk.W)
     for r in range(4):
         telemetryFrame.rowconfigure(r, weight=1)
     for c in range(4):
@@ -596,7 +673,6 @@ def crear_ventana():
     lbl_font = ("Arial", 9, "bold")
     val_font = ("Arial", 11)
 
-    # Fila 0/1: Altitud | Heading | Estado | Velocidad
     tk.Label(telemetryFrame, text='Altitud', font=lbl_font).grid(row=0, column=0, padx=4, pady=2)
     tk.Label(telemetryFrame, text='Heading', font=lbl_font).grid(row=0, column=1, padx=4, pady=2)
     tk.Label(telemetryFrame, text='Estado', font=lbl_font).grid(row=0, column=2, padx=4, pady=2)
@@ -611,7 +687,6 @@ def crear_ventana():
     speedShowLbl = tk.Label(telemetryFrame, text='--', font=val_font, fg='blue')
     speedShowLbl.grid(row=1, column=3, padx=4, pady=2)
 
-    # Fila 2/3: Modo vuelo | Latitud | Longitud
     tk.Label(telemetryFrame, text='Modo vuelo', font=lbl_font).grid(row=2, column=0, padx=4, pady=2)
     tk.Label(telemetryFrame, text='Latitud', font=lbl_font).grid(row=2, column=1, padx=4, pady=2)
     tk.Label(telemetryFrame, text='Longitud', font=lbl_font).grid(row=2, column=2, padx=4, pady=2)
@@ -623,29 +698,22 @@ def crear_ventana():
     lonShowLbl = tk.Label(telemetryFrame, text='--', font=val_font, fg='blue')
     lonShowLbl.grid(row=3, column=2, padx=4, pady=2)
 
-    # ---- Fila 8: GoTo frame (lat, lon, alt) ----
-    gotoFrame = tk.LabelFrame(ventana, text="Ir a posición (GoTo)", font=("Arial", 10, "bold"))
-    gotoFrame.grid(row=8, column=0, columnspan=4, padx=10, pady=5, sticky=tk.N + tk.S + tk.E + tk.W)
-
-    for c in range(3):
+    gotoFrame = tk.LabelFrame(ventana, text="Ir a posición (GoTo)", font=btn_font)
+    gotoFrame.grid(row=8, column=0, columnspan=4, padx=10, pady=5, sticky=tk.N+tk.S+tk.E+tk.W)
+    for c in range(2):
         gotoFrame.columnconfigure(c, weight=1)
 
     tk.Label(gotoFrame, text='Lat:', font=("Arial", 9)).grid(row=0, column=0, padx=4, pady=2)
     latEntry = tk.Entry(gotoFrame, font=("Arial", 10))
-    latEntry.grid(row=1, column=0, padx=4, pady=2, sticky=tk.E + tk.W)
+    latEntry.grid(row=1, column=0, padx=4, pady=2, sticky=tk.E+tk.W)
 
     tk.Label(gotoFrame, text='Lon:', font=("Arial", 9)).grid(row=0, column=1, padx=4, pady=2)
     lonEntry = tk.Entry(gotoFrame, font=("Arial", 10))
-    lonEntry.grid(row=1, column=1, padx=4, pady=2, sticky=tk.E + tk.W)
+    lonEntry.grid(row=1, column=1, padx=4, pady=2, sticky=tk.E+tk.W)
 
-    tk.Label(gotoFrame, text='Alt:', font=("Arial", 9)).grid(row=0, column=2, padx=4, pady=2)
-    altGotoEntry = tk.Entry(gotoFrame, font=("Arial", 10))
-    altGotoEntry.grid(row=1, column=2, padx=4, pady=2, sticky=tk.E + tk.W)
-
-    # ---- Fila 9: Botón Ir a posición (4 columnas) ----
-    gotoBtn = tk.Button(ventana, text="Ir a posición", bg="dark orange", font=("Arial", 10, "bold"),
-                        command=gotoPosition)
-    gotoBtn.grid(row=9, column=0, columnspan=4, padx=5, pady=3, sticky=tk.N + tk.S + tk.E + tk.W)
+    gotoBtn = tk.Button(ventana, text="Ir a posición", font=btn_font, command=gotoPosition)
+    gotoBtn.grid(row=9, column=0, columnspan=4, padx=5, pady=3, sticky=tk.N+tk.S+tk.E+tk.W)
+    _deshabilitarBtn(gotoBtn, 'Ir a posición')
 
     return ventana
 
