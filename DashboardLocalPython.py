@@ -285,7 +285,7 @@ def arm():
         messagebox.showerror("Error", "No se pudo iniciar el armado.")
 
 def disarm():
-    global dron
+    global dron, _enTransicion
     if dron.state != 'armed':
         messagebox.showwarning("Aviso",
             "El dron debe estar armado (sin volar) para desarmar.\nEstado actual: " + dron.state)
@@ -295,6 +295,7 @@ def disarm():
         dron.vehicle.target_system, dron.vehicle.target_component,
         mavutil.mavlink.MAV_CMD_COMPONENT_ARM_DISARM, 0, 0, 0, 0, 0, 0, 0, 0)
     dron.state = 'connected'
+    _enTransicion = False
     actualizarBotonesSegunEstado()
     _activarBtn(disarmBtn, 'Desarmado')
     resetBtn(disarmBtn, 'Desarmar', 2000)

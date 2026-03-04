@@ -28,6 +28,12 @@ def unfixHeading (self):
 def _changeHeading (self, absoluteDegrees, callback=None, params = None):
     # para cambiar el heading en necesario detener el modo navegación
     self._stopGo()
+
+    # Calcular el sentido de giro más corto
+    cw_deg  = (absoluteDegrees - self.heading) % 360   # grados girando en horario
+    ccw_deg = (self.heading - absoluteDegrees) % 360   # grados girando en antihorario
+    direction = 1 if cw_deg <= ccw_deg else -1         # 1 = CW, -1 = CCW
+
     self.vehicle.mav.command_long_send(
         self.vehicle.target_system,
         self.vehicle.target_component,
@@ -35,7 +41,7 @@ def _changeHeading (self, absoluteDegrees, callback=None, params = None):
         0,
         absoluteDegrees,  # param 1, yaw in degrees
         15, # param 2, yaw speed deg/s
-        1, # param 3, direction -1 ccw, 1 cw
+        direction, # param 3, direction -1 ccw, 1 cw (sentido más corto)
         0, # param 4, relative offset 1, absolute angle 0
         0, 0, 0, 0) # not used
 

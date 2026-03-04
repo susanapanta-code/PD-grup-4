@@ -5,6 +5,7 @@
 import json
 import threading
 import time
+import uuid
 from flask import Flask, request, jsonify, send_from_directory
 import paho.mqtt.client as mqtt
 from threading import Lock
@@ -15,8 +16,8 @@ MQTT_PORT = 1883
 MQTT_KEEPALIVE = 60
 
 # Topics (ajusta si tus tópicos son distintos)
-TOPIC_PREFIX_PUB = "mobileFlask/autopilotServiceDemo"        # donde publicamos comandos
-TOPIC_TELEMETRY_SUB = "autopilotServiceDemo/mobileFlask/telemetryInfo"  # donde viene telemetría
+TOPIC_PREFIX_PUB = "grupo4/mobileFlask/autopilotServiceDemo"        # donde publicamos comandos
+TOPIC_TELEMETRY_SUB = "grupo4/autopilotServiceDemo/mobileFlask/telemetryInfo"  # donde viene telemetría
 
 app = Flask(__name__, static_folder="static", static_url_path="/static")
 
@@ -28,7 +29,7 @@ telemetry = {
 telemetry_lock = Lock()
 
 # --- MQTT client setup ---
-mqtt_client = mqtt.Client(client_id="http_gateway_" + str(int(time.time())))
+mqtt_client = mqtt.Client(client_id="http_gateway_" + str(uuid.uuid4()))
 # Si tu broker requiere username/password:
 # mqtt_client.username_pw_set("user", "pass")
 
