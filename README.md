@@ -1,4 +1,4 @@
-## Implementación de funcionalidades extra ---
+## Implementación de funcionalidades extra
 Para la versión de python nuevas funcionalidades han sido añadidas, incluyendo botones y datos de telemetría. 
 
 Nuevos Botones: 
