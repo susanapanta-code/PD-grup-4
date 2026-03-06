@@ -3,6 +3,7 @@
 #####################################
 
 import paho.mqtt.client as mqtt
+from paho.mqtt.enums import CallbackAPIVersion
 import json
 from dronLink.Dron import Dron
 
@@ -87,7 +88,7 @@ def on_connect(client, userdata, flags, rc):
 
 dron = Dron()
 
-client = mqtt.Client("autopilotServiceDemo", transport="websockets")
+client = mqtt.Client(CallbackAPIVersion.VERSION1, "autopilotServiceDemo", transport="websockets")
 
 # me conecto al broker publico y gratuito
 broker_address = "broker.hivemq.com"

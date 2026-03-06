@@ -80,7 +80,11 @@
         <!-- 🔵 Control de Heading -->
         <div class="mb-2">
             <label for="headingSlider"><strong>Orientación (Heading):</strong></label>
-            <input type="range" id="headingSlider" class="form-range" min="0" max="360" value="0" step="1" oninput="headingValue.innerText = this.value">
+            <input type="range" id="headingSlider" class="form-range" min="0" max="360" value="0" step="1"
+                oninput="headingValue.innerText = this.value"
+                onpointerdown="arrastrando = true"
+                onpointerup="soltarSlider()"
+                ontouchend="soltarSlider()">
             <span id="headingValue">0</span>°
             <button id="botonHeading" class="boton mt-2" onclick="cambiarHeading()">Cambiar Heading</button>
         </div>
@@ -100,13 +104,24 @@
             reconnectPeriod: 1000,
         });
 
+        // Bloquea la actualización del slider mientras el usuario lo arrastra
+        let arrastrando = false;
+        let timerSoltar = null;
+
+        function soltarSlider() {
+            // Espera 5 segundos antes de volver a permitir que la telemetría actualice el slider
+            // Así el usuario tiene tiempo de pulsar "Cambiar Heading"
+            clearTimeout(timerSoltar);
+            timerSoltar = setTimeout(() => { arrastrando = false; }, 5000);
+        }
+
         client.on('connect', function () {
             console.log('Conectado al broker MQTT');
-            client.subscribe('grupo4/autopilotServiceDemo/mobileFlask/#');
+            client.subscribe('autopilotServiceDemo/mobileFlask/#');
         });
 
         client.on('message', function (topic, message) {
-            if (topic === "grupo4/autopilotServiceDemo/mobileFlask/telemetryInfo") {
+            if (topic === "autopilotServiceDemo/mobileFlask/telemetryInfo") {
                 const data = JSON.parse(message.toString());
                 const alt = data.alt;
                 const estado = data.state;
@@ -129,8 +144,8 @@
 
                 document.getElementById("altitudValor").innerText = alt.toFixed(2);
 
-                // Si la telemetría incluye heading, mostrarlo
-                if (data.heading !== undefined) {
+                // Si la telemetría incluye heading, mostrarlo (solo si el usuario no está moviendo el slider)
+                if (data.heading !== undefined && !arrastrando) {
                     document.getElementById('headingSlider').value = data.heading;
                     document.getElementById('headingValue').innerText = data.heading;
                     document.getElementById('botonHeading').classList.remove('boton-amarillo');
@@ -140,15 +155,15 @@
         });
 
         function conectarDron() {
-            client.publish('grupo4/mobileFlask/autopilotServiceDemo/connect');
+            client.publish('mobileFlask/autopilotServiceDemo/connect');
             document.getElementById('botonConectar').classList.add('boton-verde');
-            client.publish('grupo4/mobileFlask/autopilotServiceDemo/startTelemetry');
+            client.publish('mobileFlask/autopilotServiceDemo/startTelemetry');
         }
 
         function despegarDron() {
             const altura = document.getElementById('altura').value;
             if (altura) {
-                client.publish('grupo4/mobileFlask/autopilotServiceDemo/arm_takeOff', altura);
+                client.publish('mobileFlask/autopilotServiceDemo/arm_takeOff', altura);
                 document.getElementById('botonDespegar').classList.add('boton-amarillo');
             } else {
                 alert("Por favor, ingrese una altura válida.");
@@ -156,25 +171,28 @@
         }
 
         function aterrizarDron() {
-            client.publish('grupo4/mobileFlask/autopilotServiceDemo/Land');
+            client.publish('mobileFlask/autopilotServiceDemo/Land');
             document.getElementById('botonAterrizar').classList.remove('boton-verde');
             document.getElementById('botonAterrizar').classList.add('boton-amarillo');
         }
 
         function rtlDron() {
-            client.publish('grupo4/mobileFlask/autopilotServiceDemo/RTL');
+            client.publish('mobileFlask/autopilotServiceDemo/RTL');
             document.getElementById('botonRTL').classList.remove('boton-verde');
             document.getElementById('botonRTL').classList.add('boton-amarillo');
         }
 
         function moverDron(direction) {
-            client.publish('grupo4/mobileFlask/autopilotServiceDemo/go', direction);
+            client.publish('mobileFlask/autopilotServiceDemo/go', direction);
         }
 
         function cambiarHeading() {
             const heading = document.getElementById('headingSlider').value;
-            client.publish('grupo4/mobileFlask/autopilotServiceDemo/heading', heading.toString());
+            client.publish('mobileFlask/autopilotServiceDemo/changeHeading', heading.toString());
             document.getElementById('botonHeading').classList.add('boton-amarillo');
+            // Al enviar el comando, cancelar el temporizador y liberar el slider
+            clearTimeout(timerSoltar);
+            arrastrando = false;
         }
     </script>
 

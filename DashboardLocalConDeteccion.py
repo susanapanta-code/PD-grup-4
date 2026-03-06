@@ -2,7 +2,7 @@
 # ultralytics
 # torch
 # seaborn
-# tpdm
+# tqdm
 #######################################
 
 import threading
