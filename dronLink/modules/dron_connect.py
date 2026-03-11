@@ -10,12 +10,27 @@ ha pasado mucho tiempo desde que se armó sin despegar'''
 
 
 def _handle_heartbeat(self, msg):
-    if msg.base_mode == 89 and self.state == 'armed':
-        self.state = 'connected'
-        print ('Ne acabo de desarmar')
+    # Solo procesar heartbeats del autopiloto (type 0 = GCS, type 2 = quadrotor, etc.)
+    # Los heartbeats de la GCS (type=6, MAV_TYPE_GCS) no tienen info de armado fiable
+    if msg.type == 6:  # MAV_TYPE_GCS
+        return
+
     mode = mavutil.mode_string_v10(msg)
     if not 'Mode(0x000000' in str(mode):
             self.flightMode = mode
+
+    # Detectar transición de armado → desarmado
+    is_armed = (msg.base_mode & 128) != 0
+
+    # Solo actuar cuando ANTES estaba armado y AHORA no lo está
+    was_armed = getattr(self, '_was_armed', False)
+    self._was_armed = is_armed
+
+    if was_armed and not is_armed:
+        # Transición real de armado a desarmado
+        if self.state in ('armed', 'arming', 'takingOff', 'flying', 'landing', 'returning'):
+            print(f'Dron desarmado durante {self.state}, transicionando a connected')
+            self.state = 'connected'
 
 def _record_distance(self, msg):
     if msg:
@@ -34,10 +49,15 @@ def _record_telemetry_info(self, msg):
         self.lon = float(msg['lon'] / 10 ** 7)
         self.alt = float(msg['relative_alt'] / 1000)
         self.heading = float(msg['hdg'] / 100)
-        if self.state == 'connected' and self.alt > 0.5:
-            self.state = 'flying'
-        if self.state == 'flying' and self.alt < 0.5:
-            self.state = 'connected'
+        # Solo auto-transicionar si el estado NO está siendo gestionado por una operación
+        # (arming, armed, takingOff, landing, returning son estados gestionados)
+        # Esto evita que la telemetría pise los estados de arm(), takeOff(), Land(), RTL()
+        managed_states = ('arming', 'armed', 'takingOff', 'landing', 'returning')
+        if self.state not in managed_states:
+            if self.state == 'connected' and self.alt > 1.0:
+                self.state = 'flying'
+            if self.state == 'flying' and self.alt < 0.3:
+                self.state = 'connected'
         vx = float(msg['vx'])
         vy = float(msg['vy'])
         self.groundSpeed = math.sqrt(vx * vx + vy * vy) / 100

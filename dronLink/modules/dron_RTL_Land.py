@@ -16,14 +16,23 @@ def _goDown(self, mode, callback=None, params = None):
         self.vehicle.target_system,
         mavutil.mavlink.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED,
         mode_id)
-    # esperamos a que el dron esté en tierra
+    # esperamos a que el dron esté en tierra, con timeout de 120 segundos
     msg = self.message_handler.wait_for_message(
         'GLOBAL_POSITION_INT',
         condition=self._checkOnHearth,
+        timeout=120,
     )
-    print ('ya estoy en tierra')
+    if msg is None:
+        # Timeout expirado. Comprobar si ya se desarmó (ej. impacto en tejado)
+        print('Timeout esperando aterrizaje. Comprobando estado...')
+        if self.state == 'connected':
+            print('El dron ya se desarmó (detectado por heartbeat)')
+        else:
+            print('El dron no ha aterrizado ni se ha desarmado. Forzando estado connected.')
+            self.state = 'connected'
+    else:
+        print ('ya estoy en tierra')
 
-    #self.vehicle.motors_disarmed_wait()
     self.state = "connected"
     if callback != None:
         if self.id == None:

@@ -78,6 +78,22 @@
         <div id="telemetriaDiv" style="font-size: 24px; text-align: center; width:100%; margin-top: 20px;">
             <p><strong>Estado:</strong> <span id="estadoValor">disconnected</span></p>
             <p><strong>Altitud:</strong> <span id="altitudValor">0</span> m</p>
+            <p><strong>Heading:</strong> <span id="headingValor">0</span>°</p>
+            <p><strong>Velocidad:</strong> <span id="speedValor">0</span> m/s</p>
+        </div>
+
+        <!-- Control de velocidad de navegación -->
+        <div style="margin-top:15px; text-align:center;">
+            <label for="navSpeed" style="font-size:18px;"><strong>Vel. navegación (m/s):</strong></label>
+            <input type="range" id="navSpeed" min="0" max="20" step="1" value="1" style="width:70%;">
+            <span id="navSpeedLabel">1</span>
+        </div>
+
+        <!-- Control de heading -->
+        <div style="margin-top:10px; text-align:center;">
+            <label for="headingCtrl" style="font-size:18px;"><strong>Heading (°):</strong></label>
+            <input type="range" id="headingCtrl" min="0" max="360" step="5" value="0" style="width:70%;">
+            <span id="headingCtrlLabel">0</span>
         </div>
 
     </div>
@@ -96,11 +112,21 @@ function post(url, body = {}) {
     });
 }
 
+// Helper: quitar verde y amarillo, volver al azul original
+function resetBtn(id) {
+    const btn = document.getElementById(id);
+    btn.classList.remove('boton-verde', 'boton-amarillo');
+}
+
+function setBtn(id, color) {
+    const btn = document.getElementById(id);
+    btn.classList.remove('boton-verde', 'boton-amarillo');
+    btn.classList.add(color);
+}
+
 function conectarDron() {
-    post("/connect")
-        .then(() => {
-            document.getElementById('botonConectar').classList.add('boton-amarillo');
-        });
+    setBtn('botonConectar', 'boton-amarillo');
+    post("/connect");
 }
 
 function despegarDron() {
@@ -109,27 +135,18 @@ function despegarDron() {
         alert("Ingresa una altura válida");
         return;
     }
-
-    post("/takeoff", { altura })
-        .then(() => {
-            document.getElementById('botonDespegar').classList.add('boton-amarillo');
-        });
+    setBtn('botonDespegar', 'boton-amarillo');
+    post("/takeoff", { altura });
 }
 
 function aterrizarDron() {
-    post("/land")
-        .then(() => {
-            document.getElementById('botonAterrizar').classList.remove('boton-verde');
-            document.getElementById('botonAterrizar').classList.add('boton-amarillo');
-        });
+    setBtn('botonAterrizar', 'boton-amarillo');
+    post("/land");
 }
 
 function rtlDron() {
-    post("/rtl")
-        .then(() => {
-            document.getElementById('botonRTL').classList.remove('boton-verde');
-            document.getElementById('botonRTL').classList.add('boton-amarillo');
-        });
+    setBtn('botonRTL', 'boton-amarillo');
+    post("/rtl");
 }
 
 function moverDron(dir) {
@@ -137,8 +154,30 @@ function moverDron(dir) {
 }
 
 // ------------------------------------
-// TELEMETRÍA (Polling cada 500ms)
+// CONTROL DE VELOCIDAD Y HEADING
 // ------------------------------------
+
+document.getElementById("navSpeed").addEventListener("input", function() {
+    document.getElementById("navSpeedLabel").innerText = this.value;
+});
+document.getElementById("navSpeed").addEventListener("change", function() {
+    post("/changeNavSpeed", { speed: parseFloat(this.value) });
+});
+
+document.getElementById("headingCtrl").addEventListener("input", function() {
+    document.getElementById("headingCtrlLabel").innerText = this.value;
+});
+document.getElementById("headingCtrl").addEventListener("change", function() {
+    post("/changeHeading", { heading: parseInt(this.value) });
+});
+
+// ------------------------------------
+// TELEMETRÍA (Polling cada 500ms)
+// Los botones SOLO cambian a verde cuando
+// se detecta una transición de estado real.
+// ------------------------------------
+
+let prevEstado = "disconnected";
 
 setInterval(() => {
     fetch("/telemetry")
@@ -146,30 +185,35 @@ setInterval(() => {
         .then(data => {
             document.getElementById("altitudValor").innerText = data.alt.toFixed(2);
             document.getElementById("estadoValor").innerText = data.state;
+            document.getElementById("headingValor").innerText = Math.round(data.heading || 0);
+            document.getElementById("speedValor").innerText = (data.groundSpeed || 0).toFixed(1);
+
             const estado = data.state;
 
-            // Botón conectar: verde cuando ya no está disconnected
-            if (estado !== "disconnected") {
-                const botonConectar = document.getElementById('botonConectar');
-                botonConectar.classList.remove('boton-amarillo');
-                botonConectar.classList.add('boton-verde');
-            }
+            // Solo actuar en transiciones reales (estado cambió)
+            if (estado !== prevEstado) {
 
-            // Botón despegar: verde cuando flying
-            if (estado === "flying") {
-                const botonDespegar = document.getElementById('botonDespegar');
-                botonDespegar.classList.remove('boton-amarillo');
-                botonDespegar.classList.add('boton-verde');
-            }
-            if (estado === "landed" || estado === "connected") {
-                const botonAterrizar = document.getElementById('botonAterrizar');
-                botonAterrizar.classList.remove('boton-amarillo');
-                botonAterrizar.classList.add('boton-verde');
-            }
-            if (estado === "atHome" || estado === "connected") {
-                const botonRTL = document.getElementById('botonRTL');
-                botonRTL.classList.remove('boton-amarillo');
-                botonRTL.classList.add('boton-verde');
+                // disconnected → connected: conexión completada
+                if (prevEstado === "disconnected" && estado === "connected") {
+                    setBtn('botonConectar', 'boton-verde');
+                }
+
+                // armed/takingOff → flying: despegue completado
+                if (estado === "flying" && (prevEstado === "takingOff" || prevEstado === "armed")) {
+                    setBtn('botonDespegar', 'boton-verde');
+                }
+
+                // landing → connected: aterrizaje completado
+                if (estado === "connected" && prevEstado === "landing") {
+                    setBtn('botonAterrizar', 'boton-verde');
+                }
+
+                // returning → connected: RTL completado
+                if (estado === "connected" && prevEstado === "returning") {
+                    setBtn('botonRTL', 'boton-verde');
+                }
+
+                prevEstado = estado;
             }
         })
         .catch(() => {});

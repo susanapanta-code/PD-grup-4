@@ -3,6 +3,7 @@ import time
 import tkinter as tk
 from dronLink.Dron import Dron
 import paho.mqtt.client as mqtt
+from paho.mqtt.enums import CallbackAPIVersion
 
 def restart (): 
     time.sleep (5)
@@ -94,11 +95,11 @@ def changeNavSpeed (event):
     # publicamos la nueva velocidad por MQTT
     client.publish('interfazGlobal/autopilotServiceDemo/changeNavSpeed', str(float(speedSldr.get())))
 
-def on_connect(client, userdata, flags, rc): 
-    if rc==0:
-        print("connected OK Returned code=",rc)
+def on_connect(client, userdata, flags, reason_code, properties):
+    if reason_code==0:
+        print("connected OK Returned code=",reason_code)
     else:
-        print("Bad connection Returned code=",rc)
+        print("Bad connection Returned code=",reason_code)
 
 def on_message(client, userdata, message): 
     # aqui proceso los eventos que me envía el autopilot service
@@ -137,7 +138,7 @@ def crear_ventana():
     global connectBtn, armBtn, arm_takeOffBtn, landBtn, RTLBtn
     global previousBtn # aqui guardaré el ultimo boton de navegación clicado
 
-    client = mqtt.Client("InterfazGlobal", transport="websockets")
+    client = mqtt.Client(CallbackAPIVersion.VERSION2, "InterfazGlobal", transport="websockets")
 
     # me conecto al broker publico y gratuito
     broker_address = "broker.hivemq.com"
