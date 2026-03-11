@@ -76,6 +76,7 @@
 
         <!-- Altitud -->
         <div id="telemetriaDiv" style="font-size: 24px; text-align: center; width:100%; margin-top: 20px;">
+            <p><strong>Estado:</strong> <span id="estadoValor">disconnected</span></p>
             <p><strong>Altitud:</strong> <span id="altitudValor">0</span> m</p>
         </div>
 
@@ -97,8 +98,9 @@ function post(url, body = {}) {
 
 function conectarDron() {
     post("/connect")
-        .then(() => post("/startTelemetry"))
-        .then(() => document.getElementById('botonConectar').classList.add('boton-verde'));
+        .then(() => {
+            document.getElementById('botonConectar').classList.add('boton-amarillo');
+        });
 }
 
 function despegarDron() {
@@ -143,19 +145,28 @@ setInterval(() => {
         .then(r => r.json())
         .then(data => {
             document.getElementById("altitudValor").innerText = data.alt.toFixed(2);
+            document.getElementById("estadoValor").innerText = data.state;
             const estado = data.state;
 
+            // Botón conectar: verde cuando ya no está disconnected
+            if (estado !== "disconnected") {
+                const botonConectar = document.getElementById('botonConectar');
+                botonConectar.classList.remove('boton-amarillo');
+                botonConectar.classList.add('boton-verde');
+            }
+
+            // Botón despegar: verde cuando flying
             if (estado === "flying") {
                 const botonDespegar = document.getElementById('botonDespegar');
                 botonDespegar.classList.remove('boton-amarillo');
                 botonDespegar.classList.add('boton-verde');
             }
-            if (estado === "landed") {
+            if (estado === "landed" || estado === "connected") {
                 const botonAterrizar = document.getElementById('botonAterrizar');
                 botonAterrizar.classList.remove('boton-amarillo');
                 botonAterrizar.classList.add('boton-verde');
             }
-            if (estado === "rtl") {
+            if (estado === "atHome" || estado === "connected") {
                 const botonRTL = document.getElementById('botonRTL');
                 botonRTL.classList.remove('boton-amarillo');
                 botonRTL.classList.add('boton-verde');
