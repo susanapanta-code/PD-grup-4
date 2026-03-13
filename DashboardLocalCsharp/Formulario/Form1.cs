@@ -88,7 +88,8 @@ namespace Formulario
 
         private void but_connect_Click(object sender, EventArgs e)
         {
-            dron.Conectar("simulacion");
+            //dron.Conectar("simulacion");
+            dron.Conectar("produccion","com4");
             but_connect.BackColor = Color.Green;
             but_connect.ForeColor = Color.White;
         }
@@ -166,13 +167,11 @@ namespace Formulario
         {
 
             dron.EnviarDatosTelemetria(ProcesarTelemetria);
-            dron.EnviarDatosTelemetriaFlightModes(ProcesarTelemetriaFlightModes);
         }
 
         private void detenerTelemetriaBtn_Click(object sender, EventArgs e)
         {
             dron.DetenerDatosTelemetria();
-            dron.DetenerDatosTelemetriaFlightModes();
         }
 
         private void ProcesarTelemetria(byte id, List<(string nombre, float valor)> telemetria)
@@ -181,6 +180,29 @@ namespace Formulario
             double lat = ((double)telemetria[1].valor) / 0.1E+8;
             double lon = ((double)telemetria[2].valor) / 0.1E+8;
             double heading = ((double)telemetria[3].valor) / 100;
+            double mode = (double)telemetria[4].valor;
+            string modeStr = "";
+
+            //0:    "STABILIZE";
+            //3:    "AUTO";
+            //4:    "GUIDED";
+            //5:    "LOITER";
+            //6:    "RTL";
+            //9:    "LAND";
+
+             if (mode == 0) {
+                modeStr = "STABILIZE"; 
+                } else if (mode == 3)
+                { modeStr = "AUTO";
+                } else if (mode == 4)
+                { modeStr = "GUIDED";
+                } else if (mode == 5)
+                { modeStr = "LOITER";
+                } else if (mode == 6)
+                { modeStr = "RTL";
+                } else if (mode == 9)
+                { modeStr = "LAND";
+                } 
 
 
             // Coloco los datos de telemetria en su sitio
@@ -188,15 +210,8 @@ namespace Formulario
             latitudLbl.Text = lat.ToString();
             longitudLbl.Text = lon.ToString();
             headLbl.Text = heading.ToString();
+            flightModeLbl.Text = modeStr;
 
-        }
-        private void ProcesarTelemetriaFlightModes(byte id, List<(string nombre, uint valor)> telemetria)
-        {
-
-            uint modeId = (uint)telemetria[0].valor;
-            string modeName = CopterModes.GetModeName(modeId);
-
-            flightModeLbl.Text = modeName;
         }
 
         private void headingTrackBar_Scroll(object sender, EventArgs e)
