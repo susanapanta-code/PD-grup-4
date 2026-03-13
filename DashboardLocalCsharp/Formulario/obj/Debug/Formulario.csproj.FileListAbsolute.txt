@@ -23,3 +23,16 @@ C:\Users\Usuario\Documents\GitHub\PD-grup-4\DashboardLocalCsharp\Formulario\obj\
 C:\Users\Usuario\Documents\GitHub\PD-grup-4\DashboardLocalCsharp\Formulario\obj\Debug\Formulario.csproj.Up2Date
 C:\Users\Usuario\Documents\GitHub\PD-grup-4\DashboardLocalCsharp\Formulario\obj\Debug\Formulario.exe
 C:\Users\Usuario\Documents\GitHub\PD-grup-4\DashboardLocalCsharp\Formulario\obj\Debug\Formulario.pdb
+C:\Users\hugoh\Documents\DOCS\Universidad\8é Quatrimestre\Projecto de Drones\PD-grup-4\DashboardLocalCsharp\Formulario\bin\Debug\Formulario.exe.config
+C:\Users\hugoh\Documents\DOCS\Universidad\8é Quatrimestre\Projecto de Drones\PD-grup-4\DashboardLocalCsharp\Formulario\bin\Debug\Formulario.exe
+C:\Users\hugoh\Documents\DOCS\Universidad\8é Quatrimestre\Projecto de Drones\PD-grup-4\DashboardLocalCsharp\Formulario\bin\Debug\Formulario.pdb
+C:\Users\hugoh\Documents\DOCS\Universidad\8é Quatrimestre\Projecto de Drones\PD-grup-4\DashboardLocalCsharp\Formulario\bin\Debug\csDronLink.dll
+C:\Users\hugoh\Documents\DOCS\Universidad\8é Quatrimestre\Projecto de Drones\PD-grup-4\DashboardLocalCsharp\Formulario\obj\Debug\Formulario.csproj.AssemblyReference.cache
+C:\Users\hugoh\Documents\DOCS\Universidad\8é Quatrimestre\Projecto de Drones\PD-grup-4\DashboardLocalCsharp\Formulario\obj\Debug\Formulario.exe.config
+C:\Users\hugoh\Documents\DOCS\Universidad\8é Quatrimestre\Projecto de Drones\PD-grup-4\DashboardLocalCsharp\Formulario\obj\Debug\Formulario.Form1.resources
+C:\Users\hugoh\Documents\DOCS\Universidad\8é Quatrimestre\Projecto de Drones\PD-grup-4\DashboardLocalCsharp\Formulario\obj\Debug\Formulario.Properties.Resources.resources
+C:\Users\hugoh\Documents\DOCS\Universidad\8é Quatrimestre\Projecto de Drones\PD-grup-4\DashboardLocalCsharp\Formulario\obj\Debug\Formulario.csproj.GenerateResource.cache
+C:\Users\hugoh\Documents\DOCS\Universidad\8é Quatrimestre\Projecto de Drones\PD-grup-4\DashboardLocalCsharp\Formulario\obj\Debug\Formulario.csproj.CoreCompileInputs.cache
+C:\Users\hugoh\Documents\DOCS\Universidad\8é Quatrimestre\Projecto de Drones\PD-grup-4\DashboardLocalCsharp\Formulario\obj\Debug\Formulario.csproj.Up2Date
+C:\Users\hugoh\Documents\DOCS\Universidad\8é Quatrimestre\Projecto de Drones\PD-grup-4\DashboardLocalCsharp\Formulario\obj\Debug\Formulario.exe
+C:\Users\hugoh\Documents\DOCS\Universidad\8é Quatrimestre\Projecto de Drones\PD-grup-4\DashboardLocalCsharp\Formulario\obj\Debug\Formulario.pdb

@@ -7,6 +7,9 @@ from tkinter import messagebox
 import math
 from dronLink.Dron import Dron
 
+# ---- Configuración de conexión ----
+connection_str = 'COM14'
+baudios = 57600
 
 # ---- Colores del sistema ----
 COLOR_DISPONIBLE = "dark orange"
@@ -241,8 +244,8 @@ def actualizarBotonesSegunEstado():
 
 def connect():
     global dron, speedSldr
-    connection_string = 'tcp:127.0.0.1:5763'
-    baud = 115200
+    connection_string = connection_str
+    baud = baudios
     result = dron.connect(connection_string, baud)
     if result:
         speedSldr.set(1)
