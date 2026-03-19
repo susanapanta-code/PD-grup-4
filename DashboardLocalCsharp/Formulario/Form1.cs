@@ -4,8 +4,12 @@ using MQTTnet.Client.Options;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Drawing;
 using System.Globalization;
+using System.IO;
+using System.Net;
+using System.Net.Sockets;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -18,6 +22,9 @@ namespace Formulario
 
         Dictionary<string, object> ultimaTelemetria = null;
         bool telemetriaActiva = false;
+
+        TcpListener listener;
+        Process pythonProcess;
 
         public Form1()
         {
@@ -327,6 +334,73 @@ namespace Formulario
             await webView21.ExecuteScriptAsync("limpiarRuta();");
         }
 
+        private async Task StartVideoAsync()
+        {
+            // Servidor TCP
+            listener = new TcpListener(IPAddress.Loopback, 5000);
+            listener.Start();
+
+            // Lanzar Python
+            pythonProcess = new Process();
+            //pythonProcess.StartInfo.FileName = @"C:\Users\LENOVO\AppData\Local\Programs\Python\Python312\Lib\venv\scripts\nt\python.exe";
+            pythonProcess.StartInfo.FileName = @"C:\Users\LENOVO\AppData\Local\Programs\Python\Python312\python.exe";
+            pythonProcess.StartInfo.Arguments = @"C:\Users\LENOVO\Desktop\Uni\4B\PD\PD-grup-4\receiverParaCs.py";
+            //pythonProcess.StartInfo.Arguments = @"C:\Users\LENOVO\Desktop\Uni\4B\PD\Tutorial_VideoStreaming-main\Tutorial_VideoStreaming-main\webRTC\redGlobal\receiverGlobalWebRTC.py";
+            pythonProcess.StartInfo.UseShellExecute = false;
+            pythonProcess.Start();
+
+            // Esperar conexión
+            var client = await listener.AcceptTcpClientAsync();
+            var stream = client.GetStream();
+
+            pictureBoxVideo.Visible = false;
+
+            await Task.Run(() =>
+            {
+                while (true)
+                {
+                    try
+                    {
+                        byte[] lengthBytes = new byte[4];
+                        int read = stream.Read(lengthBytes, 0, 4);
+                        if (read == 0) break;
+
+                        int length = IPAddress.NetworkToHostOrder(BitConverter.ToInt32(lengthBytes, 0));
+
+                        byte[] buffer = new byte[length];
+                        int offset = 0;
+
+                        while (offset < length)
+                        {
+                            int r = stream.Read(buffer, offset, length - offset);
+                            if (r == 0) break;
+                            offset += r;
+                        }
+
+                        using (var ms = new MemoryStream(buffer))
+                        {
+                            Image img = Image.FromStream(ms);
+
+                            pictureBoxVideo.Invoke(new Action(() =>
+                            {
+                                pictureBoxVideo.Image?.Dispose();
+                                pictureBoxVideo.Image = new Bitmap(img);
+                            }));
+                        }
+                    }
+                    catch
+                    {
+                        break;
+                    }
+                }
+            });
+        }
+
+        private async void videoBtn_Click(object sender, EventArgs e)
+        {
+            pictureBoxVideo.Visible = true;
+        }
+
         private async void Form1_Load(object sender, EventArgs e)
         {
             await webView21.EnsureCoreWebView2Async(null);
@@ -339,6 +413,8 @@ namespace Formulario
             webView21.CoreWebView2.Settings.IsStatusBarEnabled = true;
 
             webView21.Source = new Uri(Application.StartupPath + "\\map.html");
+
+            await StartVideoAsync();
         }
     }
 }
