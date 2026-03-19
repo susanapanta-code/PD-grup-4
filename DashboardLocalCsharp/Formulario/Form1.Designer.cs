@@ -59,6 +59,7 @@
             this.button10 = new System.Windows.Forms.Button();
             this.button9 = new System.Windows.Forms.Button();
             this.groupBox1 = new System.Windows.Forms.GroupBox();
+            this.ArmarBtn_Click = new System.Windows.Forms.Button();
             this.alturaBox = new System.Windows.Forms.Label();
             this.metrosDespegue_trackBar = new System.Windows.Forms.TrackBar();
             this.label1 = new System.Windows.Forms.Label();
@@ -67,13 +68,15 @@
             this.despegarBtn = new System.Windows.Forms.Button();
             this.button6 = new System.Windows.Forms.Button();
             this.menuStrip1 = new System.Windows.Forms.MenuStrip();
-            this.ArmarBtn_Click = new System.Windows.Forms.Button();
+            this.webView21 = new Microsoft.Web.WebView2.WinForms.WebView2();
+            this.limpiarMapaBtn = new System.Windows.Forms.Button();
             ((System.ComponentModel.ISupportInitialize)(this.headingTrackBar)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.velocidadTrackBar)).BeginInit();
             this.groupBox4.SuspendLayout();
             this.groupBox2.SuspendLayout();
             this.groupBox1.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.metrosDespegue_trackBar)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.webView21)).BeginInit();
             this.SuspendLayout();
             // 
             // label4
@@ -147,6 +150,7 @@
             // 
             // groupBox4
             // 
+            this.groupBox4.Controls.Add(this.limpiarMapaBtn);
             this.groupBox4.Controls.Add(this.label10);
             this.groupBox4.Controls.Add(this.flightModeLbl);
             this.groupBox4.Controls.Add(this.label7);
@@ -164,7 +168,7 @@
             this.groupBox4.Margin = new System.Windows.Forms.Padding(4);
             this.groupBox4.Name = "groupBox4";
             this.groupBox4.Padding = new System.Windows.Forms.Padding(4);
-            this.groupBox4.Size = new System.Drawing.Size(369, 263);
+            this.groupBox4.Size = new System.Drawing.Size(369, 325);
             this.groupBox4.TabIndex = 30;
             this.groupBox4.TabStop = false;
             this.groupBox4.Text = "Telemetría";
@@ -448,6 +452,19 @@
             this.groupBox1.TabStop = false;
             this.groupBox1.Text = "Control";
             // 
+            // ArmarBtn_Click
+            // 
+            this.ArmarBtn_Click.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(255)))), ((int)(((byte)(192)))), ((int)(((byte)(128)))));
+            this.ArmarBtn_Click.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.ArmarBtn_Click.Location = new System.Drawing.Point(44, 154);
+            this.ArmarBtn_Click.Margin = new System.Windows.Forms.Padding(4);
+            this.ArmarBtn_Click.Name = "ArmarBtn_Click";
+            this.ArmarBtn_Click.Size = new System.Drawing.Size(131, 38);
+            this.ArmarBtn_Click.TabIndex = 41;
+            this.ArmarBtn_Click.Text = "Guiado";
+            this.ArmarBtn_Click.UseVisualStyleBackColor = false;
+            this.ArmarBtn_Click.Click += new System.EventHandler(this.ArmarBtn_Click_Click);
+            // 
             // alturaBox
             // 
             this.alturaBox.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
@@ -535,28 +552,38 @@
             this.menuStrip1.Location = new System.Drawing.Point(0, 0);
             this.menuStrip1.Name = "menuStrip1";
             this.menuStrip1.Padding = new System.Windows.Forms.Padding(5, 1, 0, 1);
-            this.menuStrip1.Size = new System.Drawing.Size(737, 24);
+            this.menuStrip1.Size = new System.Drawing.Size(1390, 24);
             this.menuStrip1.TabIndex = 33;
             this.menuStrip1.Text = "menuStrip1";
             // 
-            // ArmarBtn_Click
+            // webView21
             // 
-            this.ArmarBtn_Click.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(255)))), ((int)(((byte)(192)))), ((int)(((byte)(128)))));
-            this.ArmarBtn_Click.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.ArmarBtn_Click.Location = new System.Drawing.Point(44, 154);
-            this.ArmarBtn_Click.Margin = new System.Windows.Forms.Padding(4);
-            this.ArmarBtn_Click.Name = "ArmarBtn_Click";
-            this.ArmarBtn_Click.Size = new System.Drawing.Size(131, 38);
-            this.ArmarBtn_Click.TabIndex = 41;
-            this.ArmarBtn_Click.Text = "Guiado";
-            this.ArmarBtn_Click.UseVisualStyleBackColor = false;
-            this.ArmarBtn_Click.Click += new System.EventHandler(this.ArmarBtn_Click_Click);
+            this.webView21.AllowExternalDrop = true;
+            this.webView21.CreationProperties = null;
+            this.webView21.DefaultBackgroundColor = System.Drawing.Color.White;
+            this.webView21.Location = new System.Drawing.Point(729, 42);
+            this.webView21.Name = "webView21";
+            this.webView21.Size = new System.Drawing.Size(649, 617);
+            this.webView21.TabIndex = 40;
+            this.webView21.ZoomFactor = 1D;
+            // 
+            // limpiarMapaBtn
+            // 
+            this.limpiarMapaBtn.Location = new System.Drawing.Point(106, 271);
+            this.limpiarMapaBtn.Margin = new System.Windows.Forms.Padding(4);
+            this.limpiarMapaBtn.Name = "limpiarMapaBtn";
+            this.limpiarMapaBtn.Size = new System.Drawing.Size(156, 32);
+            this.limpiarMapaBtn.TabIndex = 15;
+            this.limpiarMapaBtn.Text = "Limpiar Ruta";
+            this.limpiarMapaBtn.UseVisualStyleBackColor = true;
+            this.limpiarMapaBtn.Click += new System.EventHandler(this.limpiarMapaBtn_Click);
             // 
             // Form1
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 16F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(737, 558);
+            this.ClientSize = new System.Drawing.Size(1390, 671);
+            this.Controls.Add(this.webView21);
             this.Controls.Add(this.label4);
             this.Controls.Add(this.headingTrackBar);
             this.Controls.Add(this.headingLbl);
@@ -580,6 +607,7 @@
             this.groupBox1.ResumeLayout(false);
             this.groupBox1.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)(this.metrosDespegue_trackBar)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.webView21)).EndInit();
             this.ResumeLayout(false);
             this.PerformLayout();
 
@@ -627,6 +655,8 @@
         private System.Windows.Forms.Label flightModeLbl;
         private System.Windows.Forms.Label label10;
         private System.Windows.Forms.Button ArmarBtn_Click;
+        private Microsoft.Web.WebView2.WinForms.WebView2 webView21;
+        private System.Windows.Forms.Button limpiarMapaBtn;
     }
 }
 

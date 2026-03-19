@@ -1,0 +1,61 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title>Mapa</title>
+
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+    <style>
+        #map {
+            height: 100vh;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="map"></div>
+
+    <script>
+var map = L.map('map').setView([41.3851, 2.1734], 13);
+
+L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap'
+}).addTo(map);
+
+        var ruta = [];
+        var polyline = L.polyline([], { color: 'fuchsia' }).addTo(map);
+
+        var marker = L.marker([41.3851, 2.1734]).addTo(map);
+        map.on('click', function (e) {
+            var lat = e.latlng.lat;
+            var lon = e.latlng.lng;
+
+            window.chrome.webview.postMessage({
+                lat: lat,
+                lon: lon
+            });
+        });
+
+    function actualizarPos(lat, lon) {
+        var nuevaPos = [lat, lon];
+        marker.setLatLng(nuevaPos);
+        map.setView(nuevaPos);
+
+        // Guardar punto
+        ruta.push(nuevaPos);
+
+        // Dibujar línea
+        polyline.setLatLngs(ruta);
+        }
+
+        function limpiarRuta() {
+            ruta = [];
+            polyline.setLatLngs([]);
+        }
+    </script>
+
+</body>
+</html>

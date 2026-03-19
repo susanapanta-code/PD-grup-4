@@ -7,6 +7,10 @@
       "RelativeMoniker": "D:0:0:{F0FFC789-12F4-4D89-A2CA-AD759032DBBB}|Formulario\\Formulario.csproj|solutionrelative:formulario\\form1.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
+      "AbsoluteMoniker": "D:0:0:{F0FFC789-12F4-4D89-A2CA-AD759032DBBB}|Formulario\\Formulario.csproj|c:\\users\\lenovo\\desktop\\uni\\4b\\pd\\pd-grup-4\\dashboardlocalcsharp\\formulario\\map.html||{40D31677-CBC0-4297-A9EF-89D907823A98}",
+      "RelativeMoniker": "D:0:0:{F0FFC789-12F4-4D89-A2CA-AD759032DBBB}|Formulario\\Formulario.csproj|solutionrelative:formulario\\map.html||{40D31677-CBC0-4297-A9EF-89D907823A98}"
+    },
+    {
       "AbsoluteMoniker": "D:0:0:{F0FFC789-12F4-4D89-A2CA-AD759032DBBB}|Formulario\\Formulario.csproj|C:\\Users\\LENOVO\\Desktop\\Uni\\4B\\PD\\PD-grup-4\\DashboardLocalCsharp\\formulario\\form1.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}|Form",
       "RelativeMoniker": "D:0:0:{F0FFC789-12F4-4D89-A2CA-AD759032DBBB}|Formulario\\Formulario.csproj|solutionrelative:formulario\\form1.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}|Form"
     }
@@ -18,8 +22,25 @@
       "DocumentGroups": [
         {
           "DockedWidth": 200,
-          "SelectedChildIndex": 0,
+          "SelectedChildIndex": 2,
           "Children": [
+            {
+              "$type": "Bookmark",
+              "Name": "ST:0:0:{1c4feeaa-4718-4aa9-859d-94ce25d182ba}"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 1,
+              "Title": "map.html",
+              "DocumentMoniker": "C:\\Users\\LENOVO\\Desktop\\Uni\\4B\\PD\\PD-grup-4\\DashboardLocalCsharp\\Formulario\\map.html",
+              "RelativeDocumentMoniker": "Formulario\\map.html",
+              "ToolTip": "C:\\Users\\LENOVO\\Desktop\\Uni\\4B\\PD\\PD-grup-4\\DashboardLocalCsharp\\Formulario\\map.html",
+              "RelativeToolTip": "Formulario\\map.html",
+              "ViewState": "AgIAAAwAAAAAAAAAAAAAACQAAAALAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001512|",
+              "WhenOpened": "2026-03-19T17:51:37.395Z",
+              "EditorCaption": ""
+            },
             {
               "$type": "Document",
               "DocumentIndex": 0,
@@ -28,14 +49,14 @@
               "RelativeDocumentMoniker": "Formulario\\Form1.cs",
               "ToolTip": "C:\\Users\\LENOVO\\Desktop\\Uni\\4B\\PD\\PD-grup-4\\DashboardLocalCsharp\\Formulario\\Form1.cs",
               "RelativeToolTip": "Formulario\\Form1.cs",
-              "ViewState": "AgIAAKUAAAAAAAAAAAAAwLMAAAAvAAAAAAAAAA==",
+              "ViewState": "AgIAAC4BAAAAAAAAAAAAwEMBAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
               "WhenOpened": "2026-02-24T16:57:30.405Z",
               "EditorCaption": ""
             },
             {
               "$type": "Document",
-              "DocumentIndex": 1,
+              "DocumentIndex": 2,
               "Title": "Form1.cs [Dise\u00F1o]",
               "DocumentMoniker": "C:\\Users\\LENOVO\\Desktop\\Uni\\4B\\PD\\PD-grup-4\\DashboardLocalCsharp\\Formulario\\Form1.cs",
               "RelativeDocumentMoniker": "Formulario\\Form1.cs",
@@ -44,6 +65,16 @@
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
               "WhenOpened": "2026-02-24T16:57:30.582Z",
               "EditorCaption": " [Dise\u00F1o]"
+            }
+          ]
+        },
+        {
+          "DockedWidth": 200,
+          "SelectedChildIndex": -1,
+          "Children": [
+            {
+              "$type": "Bookmark",
+              "Name": "ST:0:0:{1c64b9c2-e352-428e-a56d-0ace190b99a6}"
             }
           ]
         }

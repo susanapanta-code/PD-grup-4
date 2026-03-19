@@ -103,6 +103,35 @@ def on_message(cli, userdata, message):
         else:
             print(f'No se puede mover: dron.state={dron.state} (se esperaba "flying")')
 
+    if command == 'goTo':
+        print(f'Comando goTo recibido, dron.state={dron.state}')
+
+        if dron.state == 'flying':
+            try:
+                coords = message.payload.decode("utf-8")
+                lat, lon = coords.split(',')
+
+                lat = float(lat)
+                lon = float(lon)
+
+                print(f'Ir a: {lat}, {lon}')
+
+                # usamos la altitud actual del dron
+                alt = dron.alt if dron.alt is not None else 5
+
+                # en hilo para no bloquear MQTT
+                threading.Thread(
+                    target=dron.goto,
+                    args=[lat, lon, alt],
+                    kwargs={"blocking": False},
+                    daemon=True
+                ).start()
+
+            except Exception as e:
+                print(f'ERROR en goTo: {e}')
+        else:
+            print(f'No se puede ir a punto: dron.state={dron.state}')
+
     if command == 'Land':
         print(f'Comando Land recibido, dron.state={dron.state}')
         if dron.state == 'flying':

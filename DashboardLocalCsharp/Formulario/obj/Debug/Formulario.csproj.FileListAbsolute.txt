@@ -51,3 +51,13 @@ C:\Users\LENOVO\Desktop\Uni\4B\PD\PD-grup-4\DashboardLocalCsharp\Formulario\obj\
 C:\Users\LENOVO\Desktop\Uni\4B\PD\PD-grup-4\DashboardLocalCsharp\Formulario\obj\Debug\Formulario.csproj.Up2Date
 C:\Users\LENOVO\Desktop\Uni\4B\PD\PD-grup-4\DashboardLocalCsharp\Formulario\obj\Debug\Formulario.exe
 C:\Users\LENOVO\Desktop\Uni\4B\PD\PD-grup-4\DashboardLocalCsharp\Formulario\obj\Debug\Formulario.pdb
+C:\Users\LENOVO\Desktop\Uni\4B\PD\PD-grup-4\DashboardLocalCsharp\Formulario\bin\Debug\runtimes\win-x86\native\WebView2Loader.dll
+C:\Users\LENOVO\Desktop\Uni\4B\PD\PD-grup-4\DashboardLocalCsharp\Formulario\bin\Debug\runtimes\win-x64\native\WebView2Loader.dll
+C:\Users\LENOVO\Desktop\Uni\4B\PD\PD-grup-4\DashboardLocalCsharp\Formulario\bin\Debug\runtimes\win-arm64\native\WebView2Loader.dll
+C:\Users\LENOVO\Desktop\Uni\4B\PD\PD-grup-4\DashboardLocalCsharp\Formulario\bin\Debug\Microsoft.Web.WebView2.Core.dll
+C:\Users\LENOVO\Desktop\Uni\4B\PD\PD-grup-4\DashboardLocalCsharp\Formulario\bin\Debug\Microsoft.Web.WebView2.WinForms.dll
+C:\Users\LENOVO\Desktop\Uni\4B\PD\PD-grup-4\DashboardLocalCsharp\Formulario\bin\Debug\Microsoft.Web.WebView2.Wpf.dll
+C:\Users\LENOVO\Desktop\Uni\4B\PD\PD-grup-4\DashboardLocalCsharp\Formulario\bin\Debug\Microsoft.Web.WebView2.Core.xml
+C:\Users\LENOVO\Desktop\Uni\4B\PD\PD-grup-4\DashboardLocalCsharp\Formulario\bin\Debug\Microsoft.Web.WebView2.WinForms.xml
+C:\Users\LENOVO\Desktop\Uni\4B\PD\PD-grup-4\DashboardLocalCsharp\Formulario\bin\Debug\Microsoft.Web.WebView2.Wpf.xml
+C:\Users\LENOVO\Desktop\Uni\4B\PD\PD-grup-4\DashboardLocalCsharp\Formulario\bin\Debug\map.html

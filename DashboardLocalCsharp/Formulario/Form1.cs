@@ -1,13 +1,14 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Drawing;
-using System.Text;
-using System.Threading.Tasks;
-using System.Windows.Forms;
-using MQTTnet;
+﻿using MQTTnet;
 using MQTTnet.Client;
 using MQTTnet.Client.Options;
 using Newtonsoft.Json;
+using System;
+using System.Collections.Generic;
+using System.Drawing;
+using System.Globalization;
+using System.Text;
+using System.Threading.Tasks;
+using System.Windows.Forms;
 
 namespace Formulario
 {
@@ -116,6 +117,14 @@ namespace Formulario
                 data.ContainsKey("flightMode") && data["flightMode"] != null
                 ? data["flightMode"].ToString()
                 : "";
+
+            if (data.ContainsKey("lat") && data["lat"] != null && data.ContainsKey("lon") && data["lon"] != null)
+            {
+                string lat = Convert.ToDouble(data["lat"]).ToString(CultureInfo.InvariantCulture);
+                string lon = Convert.ToDouble(data["lon"]).ToString(CultureInfo.InvariantCulture);
+
+                webView21.ExecuteScriptAsync($"actualizarPos({lat}, {lon});");
+            }
         }
 
         // ================= ESTADO UI =================
@@ -295,9 +304,41 @@ namespace Formulario
             await client.PublishAsync("interfazGlobal/autopilotServiceDemo/arm_takeOff");
         }
 
-        private void Form1_Load(object sender, EventArgs e)
+        private async void CoreWebView2_WebMessageReceived(object sender, Microsoft.Web.WebView2.Core.CoreWebView2WebMessageReceivedEventArgs e)
         {
-            // Puedes dejarlo vacío si no lo usas
+            var json = e.WebMessageAsJson;
+
+            dynamic data = Newtonsoft.Json.JsonConvert.DeserializeObject(json);
+
+            double lat = (double)data.lat;
+            double lon = (double)data.lon;
+
+            string latStr = lat.ToString(CultureInfo.InvariantCulture);
+            string lonStr = lon.ToString(CultureInfo.InvariantCulture);
+
+            await client.PublishAsync(
+                "interfazGlobal/autopilotServiceDemo/goTo",
+                Encoding.UTF8.GetBytes($"{latStr},{lonStr}")
+            );
+        }
+
+        private async void limpiarMapaBtn_Click(object sender, EventArgs e)
+        {
+            await webView21.ExecuteScriptAsync("limpiarRuta();");
+        }
+
+        private async void Form1_Load(object sender, EventArgs e)
+        {
+            await webView21.EnsureCoreWebView2Async(null);
+            webView21.CoreWebView2.WebMessageReceived += CoreWebView2_WebMessageReceived;
+            webView21.CoreWebView2.Settings.IsScriptEnabled = true;
+            webView21.CoreWebView2.Settings.AreHostObjectsAllowed = true;
+
+            webView21.CoreWebView2.Settings.IsWebMessageEnabled = true;
+            webView21.CoreWebView2.Settings.AreDefaultScriptDialogsEnabled = true;
+            webView21.CoreWebView2.Settings.IsStatusBarEnabled = true;
+
+            webView21.Source = new Uri(Application.StartupPath + "\\map.html");
         }
     }
 }
