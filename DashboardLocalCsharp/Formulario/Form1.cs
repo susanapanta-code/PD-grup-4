@@ -1,267 +1,303 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.ComponentModel;
-using System.Data;
-using System.Diagnostics;
 using System.Drawing;
-using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
-using csDronLink;
+using MQTTnet;
+using MQTTnet.Client;
+using MQTTnet.Client.Options;
+using Newtonsoft.Json;
 
 namespace Formulario
 {
     public partial class Form1 : Form
     {
-        Dron dron = new Dron();
+        IMqttClient client;
+
+        Dictionary<string, object> ultimaTelemetria = null;
+        bool telemetriaActiva = false;
 
         public Form1()
         {
             InitializeComponent();
-            // No queremos que nos molesten con la excepción Cross-Threading
             CheckForIllegalCrossThreadCalls = false;
-            // Configuramos los 9 botones de movimiento. Todos ellos tendrán asociada la misma función
-            // para gestionar el evento click, pero en el tag ponemos la palabra que identifica la dirección 
-            // del movimiento, que es la palabra que hay que pasarle como parámetro al dron para que haga la
-            // operación. El texto es el código de una flechita que representa la dirección del movimineto.
 
-            Font letraGrande = new Font("Arial", 14);
-            Font letraPequeña = new Font("Arial", 12);
-
-            // Ahora configuramos los botones de navegación
-
-            button9.Text = "NW";
-            button9.Tag = "NorthWest";
-            button9.Click += navButton_Click;
-            button9.Font = letraGrande;
-
-
-            button10.Text = "N";
-            button10.Tag = "North";
-            button10.Click += navButton_Click;
-            button10.Font = letraGrande;
-
-
-            button11.Text = "NE";
-            button11.Tag = "NorthEast";
-            button11.Click += navButton_Click;
-            button11.Font = letraGrande;
-
-
-            button12.Text = "W";
-            button12.Tag = "West";
-            button12.Click += navButton_Click;
-            button12.Font = letraGrande;
-
-
-            button13.Text = "Stop";
-            button13.Tag = "Stop";
-            button13.Click += navButton_Click;
-            button13.Font = letraPequeña;
-
-
-            button14.Text = "E";
-            button14.Tag = "East";
-            button14.Click += navButton_Click;
-            button14.Font = letraGrande;
-
-
-            button15.Text = "SW";
-            button15.Tag = "SouthWest";
-            button15.Click += navButton_Click;
-            button15.Font = letraGrande;
-
-
-            button16.Text = "S";
-            button16.Tag = "South";
-            button16.Click += navButton_Click;
-            button16.Font = letraGrande;
-
-
-            button17.Text = "SE";
-            button17.Tag = "SouthEast";
-            button17.Click += navButton_Click;
-            button17.Font = letraGrande;
-
+            ConfigurarBotones();
+            ConectarMQTT();
         }
 
-        private void but_connect_Click(object sender, EventArgs e)
+        // ================= MQTT =================
+
+        private async void ConectarMQTT()
         {
-            //dron.Conectar("simulacion");
-            dron.Conectar("produccion","com4");
-            but_connect.BackColor = Color.Green;
-            but_connect.ForeColor = Color.White;
+            var factory = new MqttFactory();
+            client = factory.CreateMqttClient();
+
+            var options = new MqttClientOptionsBuilder()
+                .WithWebSocketServer("broker.hivemq.com:8000/mqtt")
+                .Build();
+
+            client.UseApplicationMessageReceivedHandler(e =>
+            {
+                string topic = e.ApplicationMessage.Topic;
+
+                string payload = "";
+                if (e.ApplicationMessage.Payload != null)
+                {
+                    payload = Encoding.UTF8.GetString(e.ApplicationMessage.Payload);
+                }
+
+                ProcesarMensaje(topic, payload);
+            });
+
+            await client.ConnectAsync(options);
+            await client.SubscribeAsync("autopilotServiceDemo/interfazGlobal/#");
         }
 
-
-        private void EnAire(byte id, object param)
+        private void ProcesarMensaje(string topic, string payload)
         {
-            // Esto es lo que haré cuando el dron haya alcanzado la altura de despegue
-            despegarBtn.BackColor = Color.Green;
-            despegarBtn.ForeColor = Color.White;
-            despegarBtn.Text = (string)param;
+            // ---- EVENTOS ----
+
+            if (topic.EndsWith("/connected"))
+            {
+                but_connect.BackColor = Color.Green;
+                but_connect.ForeColor = Color.White;
+                but_connect.Text = "Conectado";
+            }
+
+            else if (topic.EndsWith("/flying"))
+            {
+                SetEstado("flying");
+            }
+
+            else if (topic.EndsWith("/landed"))
+            {
+                SetEstado("landed");
+            }
+
+            else if (topic.EndsWith("/atHome"))
+            {
+                SetEstado("atHome");
+            }
+
+            // ---- TELEMETRÍA ----
+
+            else if (topic.EndsWith("/telemetryInfo"))
+            {
+                var data = JsonConvert.DeserializeObject<Dictionary<string, object>>(payload);
+
+                // 🔹 Guardar SIEMPRE
+                ultimaTelemetria = data;
+
+                // 🔹 Mostrar SOLO si está activa
+                if (telemetriaActiva)
+                {
+                    MostrarTelemetria(data);
+                }
+            }
         }
 
-        private void but_takeoff_Click(object sender, EventArgs e)
+        private void MostrarTelemetria(Dictionary<string, object> data)
         {
-            // Restablecer el botón de aterrizar a su estado original
-            button7.BackColor = Color.FromArgb(255, 192, 128);
+            latitudLbl.Text = data.ContainsKey("lat") && data["lat"] != null
+                ? data["lat"].ToString()
+                : "";
+
+            longitudLbl.Text = data.ContainsKey("lon") && data["lon"] != null
+                ? data["lon"].ToString()
+                : "";
+
+            altitudLbl.Text = data.ContainsKey("alt") ? data["alt"].ToString() : "";
+
+            headLbl.Text = data.ContainsKey("heading") ? data["heading"].ToString() : "";
+
+            flightModeLbl.Text =
+                data.ContainsKey("flightMode") && data["flightMode"] != null
+                ? data["flightMode"].ToString()
+                : "";
+        }
+
+        // ================= ESTADO UI =================
+
+        private void ResetBotones()
+        {
+            Color baseColor = Color.FromArgb(255, 192, 128);
+
+            despegarBtn.BackColor = baseColor;
+            despegarBtn.ForeColor = Color.Black;
+            despegarBtn.Text = "Despegar";
+
+            button7.BackColor = baseColor;
             button7.ForeColor = Color.Black;
             button7.Text = "Aterrizar";
 
-            // Restablecer el botón de RTL a su estado original
-            button6.BackColor = Color.FromArgb(255, 192, 128);
+            button6.BackColor = baseColor;
             button6.ForeColor = Color.Black;
             button6.Text = "RTL";
-
-            // Click en boton para dspegar
-            // Llamada no bloqueante para no bloquear el formulario
-            dron.Despegar(metrosDespegue_trackBar.Value, bloquear: false, EnAire, "Volando");
-            despegarBtn.BackColor = Color.Yellow;
         }
 
-        private void navButton_Click(object sender, EventArgs e)
+        private void SetEstado(string estado)
         {
-            // Aqui vendremos cuando se clique cualquiera de los botones de navagación
-            // En el tag del boton tenemos la dirección de navegación.
-            Button b = (Button)sender;
-            string tag = b.Tag.ToString();
-            dron.Navegar(tag);
+            ResetBotones();
 
-        }
-
-        private void EnTierra(byte id, object mensaje)
-        {
-            // Aqui vendre cuando el dron esté en tierra
-            // El mensaje me dice si vengo de un aterrizaje o de un RTL
-
-            // Restablecer el botón de despegue a su estado original
-            despegarBtn.BackColor = Color.FromArgb(255, 192, 128);
-            despegarBtn.ForeColor = Color.Black;
-            despegarBtn.Text = "Despegar"; 
-
-            if ((string)mensaje == "Aterrizaje")
+            if (estado == "flying")
+            {
+                despegarBtn.BackColor = Color.Green;
+                despegarBtn.ForeColor = Color.White;
+                despegarBtn.Text = "En el aire";
+            }
+            else if (estado == "landed")
+            {
                 button7.BackColor = Color.Green;
-            else
+                button7.ForeColor = Color.White;
+                button7.Text = "En tierra";
+            }
+            else if (estado == "atHome")
+            {
                 button6.BackColor = Color.Green;
+                button6.ForeColor = Color.White;
+                button6.Text = "En tierra";
+            }
         }
 
+        // ================= CONFIG BOTONES =================
 
-
-        private void aterrizarBtn_Click(object sender, EventArgs e)
+        private void ConfigurarBotones()
         {
-            // Click en el botón de aterrizar
-            dron.Aterrizar(bloquear: false, EnTierra, "Aterrizaje");
+            Font grande = new Font("Arial", 14);
+
+            button9.Tag = "NorthWest";
+            button10.Tag = "North";
+            button11.Tag = "NorthEast";
+            button12.Tag = "West";
+            button13.Tag = "Stp";
+            button14.Tag = "East";
+            button15.Tag = "SouthWest";
+            button16.Tag = "South";
+            button17.Tag = "SouthEast";
+
+            foreach (Button b in new[] {
+                button9, button10, button11,
+                button12, button13, button14,
+                button15, button16, button17 })
+            {
+                b.Click += navButton_Click;
+                b.Font = grande;
+            }
+        }
+
+        // ================= BOTONES =================
+
+        private async void but_connect_Click(object sender, EventArgs e)
+        {
+            await client.PublishAsync("interfazGlobal/autopilotServiceDemo/connect");
+        }
+
+        private async void but_takeoff_Click(object sender, EventArgs e)
+        {
+            ResetBotones();
+
+            despegarBtn.BackColor = Color.Yellow;
+            despegarBtn.Text = "Despegando...";
+
+            await client.PublishAsync("interfazGlobal/autopilotServiceDemo/arm_takeOff");
+        }
+
+        private async void aterrizarBtn_Click(object sender, EventArgs e)
+        {
+            ResetBotones();
+
             button7.BackColor = Color.Yellow;
+            button7.Text = "Aterrizando...";
+
+            await client.PublishAsync("interfazGlobal/autopilotServiceDemo/Land");
         }
 
-        private void RTLBtn_Click(object sender, EventArgs e)
+        private async void RTLBtn_Click(object sender, EventArgs e)
         {
-            // Click en el botón de RTL
-            dron.RTL(bloquear: false, EnTierra, "RTL");
+            ResetBotones();
+
             button6.BackColor = Color.Yellow;
+            button6.Text = "Retornando...";
+
+            await client.PublishAsync("interfazGlobal/autopilotServiceDemo/RTL");
         }
 
-        private void enviarTelemetriaBtn_Click(object sender, EventArgs e)
+        private async void navButton_Click(object sender, EventArgs e)
         {
+            Button b = (Button)sender;
+            string direccion = b.Tag.ToString();
 
-            dron.EnviarDatosTelemetria(ProcesarTelemetria);
+            await client.PublishAsync(
+                "interfazGlobal/autopilotServiceDemo/go",
+                Encoding.UTF8.GetBytes(direccion)
+            );
         }
 
-        private void detenerTelemetriaBtn_Click(object sender, EventArgs e)
+        private async void enviarTelemetriaBtn_Click(object sender, EventArgs e)
         {
-            dron.DetenerDatosTelemetria();
+            telemetriaActiva = true;
+
+            // Mostrar inmediatamente lo último recibido
+            if (ultimaTelemetria != null)
+            {
+                MostrarTelemetria(ultimaTelemetria);
+            }
+
+            await client.PublishAsync("interfazGlobal/autopilotServiceDemo/startTelemetry");
         }
 
-        private void ProcesarTelemetria(byte id, List<(string nombre, float valor)> telemetria)
+        private async void detenerTelemetriaBtn_Click(object sender, EventArgs e)
         {
-            // Aqui vendre cada vez que llegue un paquete de telemetría
-            double lat = ((double)telemetria[1].valor) / 0.1E+8;
-            double lon = ((double)telemetria[2].valor) / 0.1E+8;
-            double heading = ((double)telemetria[3].valor) / 100;
-            double mode = (double)telemetria[4].valor;
-            string modeStr = "";
+            telemetriaActiva = false;
 
-            //0:    "STABILIZE";
-            //3:    "AUTO";
-            //4:    "GUIDED";
-            //5:    "LOITER";
-            //6:    "RTL";
-            //9:    "LAND";
-
-             if (mode == 0) {
-                modeStr = "STABILIZE"; 
-                } else if (mode == 3)
-                { modeStr = "AUTO";
-                } else if (mode == 4)
-                { modeStr = "GUIDED";
-                } else if (mode == 5)
-                { modeStr = "LOITER";
-                } else if (mode == 6)
-                { modeStr = "RTL";
-                } else if (mode == 9)
-                { modeStr = "LAND";
-                } 
-
-
-            // Coloco los datos de telemetria en su sitio
-            altitudLbl.Text = telemetria[0].valor.ToString();
-            latitudLbl.Text = lat.ToString();
-            longitudLbl.Text = lon.ToString();
-            headLbl.Text = heading.ToString();
-            flightModeLbl.Text = modeStr;
-
+            await client.PublishAsync("interfazGlobal/autopilotServiceDemo/stopTelemetry");
         }
 
         private void headingTrackBar_Scroll(object sender, EventArgs e)
         {
-            // Recojo el valor del heading seleccionado
-            int n = headingTrackBar.Value;
-            headingLbl.Text = n.ToString();
+            headingLbl.Text = headingTrackBar.Value.ToString();
         }
 
-
-        private void headingTrackBar_MouseUp(object sender, MouseEventArgs e)
+        private async void headingTrackBar_MouseUp(object sender, MouseEventArgs e)
         {
-            // Cuando se libera la barra de desplazamiento recojo el valor
-            // definitivo para el heading y lo envío al dron
-            float valorSeleccionado = headingTrackBar.Value;
-            dron.CambiarHeading(valorSeleccionado, bloquear: false);
+            int valor = headingTrackBar.Value;
+
+            await client.PublishAsync(
+                "interfazGlobal/autopilotServiceDemo/changeHeading",
+                Encoding.UTF8.GetBytes(valor.ToString())
+            );
         }
 
         private void velocidadTrackBar_Scroll(object sender, EventArgs e)
         {
-            // Recojo y muestro el valor la velocidad según se mueve 
-            // la barra de desplazamiento
-            int n = velocidadTrackBar.Value;
-            velocidadLbl.Text = n.ToString();
-
+            velocidadLbl.Text = velocidadTrackBar.Value.ToString();
         }
 
-        private void velocidadTrackBar_MouseUp(object sender, MouseEventArgs e)
+        private async void velocidadTrackBar_MouseUp(object sender, MouseEventArgs e)
         {
-            // Cuando se libera la barra de desplazamiento recojo el valor
-            // definitivo para la velocidad y lo envío al dron
-            int valorSeleccionado = velocidadTrackBar.Value;
-            dron.CambiaVelocidad(valorSeleccionado);
-        }
+            int valor = velocidadTrackBar.Value;
 
+            await client.PublishAsync(
+                "interfazGlobal/autopilotServiceDemo/changeNavSpeed",
+                Encoding.UTF8.GetBytes(valor.ToString())
+            );
+        }
 
         private void metrosDespegue_trackBar_Scroll(object sender, EventArgs e)
         {
-            // Actualizar el label con el valor seleccionado
             alturaBox.Text = metrosDespegue_trackBar.Value.ToString();
+        }
+
+        private async void ArmarBtn_Click_Click(object sender, EventArgs e)
+        {
+            await client.PublishAsync("interfazGlobal/autopilotServiceDemo/arm_takeOff");
         }
 
         private void Form1_Load(object sender, EventArgs e)
         {
-
-        }
-
-        private void ArmarBtn_Click_Click(object sender, EventArgs e)
-        {
-            dron.PonModoGuiado();
+            // Puedes dejarlo vacío si no lo usas
         }
     }
 }

@@ -54,8 +54,10 @@ def on_message(cli, userdata, message):
                 dron.send_telemetry_info(publish_telemetry_info)
                 print('Telemetría reiniciada')
         else:
-            connection_string = 'COM14'
-            baud = 57600
+            #connection_string = 'COM14'
+            connection_string = 'tcp:127.0.0.1:5763'
+            #baud = 57600
+            baud = 115200
             print('Conectando al dron...')
             # Ejecutar en hilo aparte para NO bloquear el loop MQTT
             def do_connect():

@@ -36,3 +36,18 @@ C:\Users\hugoh\Documents\DOCS\Universidad\8é Quatrimestre\Projecto de Drones\PD
 C:\Users\hugoh\Documents\DOCS\Universidad\8é Quatrimestre\Projecto de Drones\PD-grup-4\DashboardLocalCsharp\Formulario\obj\Debug\Formulario.csproj.Up2Date
 C:\Users\hugoh\Documents\DOCS\Universidad\8é Quatrimestre\Projecto de Drones\PD-grup-4\DashboardLocalCsharp\Formulario\obj\Debug\Formulario.exe
 C:\Users\hugoh\Documents\DOCS\Universidad\8é Quatrimestre\Projecto de Drones\PD-grup-4\DashboardLocalCsharp\Formulario\obj\Debug\Formulario.pdb
+C:\Users\LENOVO\Desktop\Uni\4B\PD\PD-grup-4\DashboardLocalCsharp\Formulario\bin\Debug\Formulario.exe.config
+C:\Users\LENOVO\Desktop\Uni\4B\PD\PD-grup-4\DashboardLocalCsharp\Formulario\bin\Debug\Formulario.exe
+C:\Users\LENOVO\Desktop\Uni\4B\PD\PD-grup-4\DashboardLocalCsharp\Formulario\bin\Debug\Formulario.pdb
+C:\Users\LENOVO\Desktop\Uni\4B\PD\PD-grup-4\DashboardLocalCsharp\Formulario\bin\Debug\csDronLink.dll
+C:\Users\LENOVO\Desktop\Uni\4B\PD\PD-grup-4\DashboardLocalCsharp\Formulario\bin\Debug\MQTTnet.dll
+C:\Users\LENOVO\Desktop\Uni\4B\PD\PD-grup-4\DashboardLocalCsharp\Formulario\bin\Debug\Newtonsoft.Json.dll
+C:\Users\LENOVO\Desktop\Uni\4B\PD\PD-grup-4\DashboardLocalCsharp\Formulario\bin\Debug\Newtonsoft.Json.xml
+C:\Users\LENOVO\Desktop\Uni\4B\PD\PD-grup-4\DashboardLocalCsharp\Formulario\obj\Debug\Formulario.csproj.AssemblyReference.cache
+C:\Users\LENOVO\Desktop\Uni\4B\PD\PD-grup-4\DashboardLocalCsharp\Formulario\obj\Debug\Formulario.Form1.resources
+C:\Users\LENOVO\Desktop\Uni\4B\PD\PD-grup-4\DashboardLocalCsharp\Formulario\obj\Debug\Formulario.Properties.Resources.resources
+C:\Users\LENOVO\Desktop\Uni\4B\PD\PD-grup-4\DashboardLocalCsharp\Formulario\obj\Debug\Formulario.csproj.GenerateResource.cache
+C:\Users\LENOVO\Desktop\Uni\4B\PD\PD-grup-4\DashboardLocalCsharp\Formulario\obj\Debug\Formulario.csproj.CoreCompileInputs.cache
+C:\Users\LENOVO\Desktop\Uni\4B\PD\PD-grup-4\DashboardLocalCsharp\Formulario\obj\Debug\Formulario.csproj.Up2Date
+C:\Users\LENOVO\Desktop\Uni\4B\PD\PD-grup-4\DashboardLocalCsharp\Formulario\obj\Debug\Formulario.exe
+C:\Users\LENOVO\Desktop\Uni\4B\PD\PD-grup-4\DashboardLocalCsharp\Formulario\obj\Debug\Formulario.pdb
