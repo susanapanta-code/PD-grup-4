@@ -78,10 +78,18 @@ def go (direction, btn):
 def startTelem(): 
     global dron
     client.publish('interfazGlobal/autopilotServiceDemo/startTelemetry')
+    StartTelemBtn['bg'] = 'green'
+    StartTelemBtn['fg'] = 'white'
+    StopTelemBtn['bg'] = 'dark orange'
+    StopTelemBtn['fg'] = 'black'
 
 def stopTelem(): 
     global dron
     client.publish('interfazGlobal/autopilotServiceDemo/stopTelemetry')
+    StopTelemBtn['bg'] = 'red'
+    StopTelemBtn['fg'] = 'white'
+    StartTelemBtn['bg'] = 'dark orange'
+    StartTelemBtn['fg'] = 'black'
 
 def changeHeading (event): 
     global dron
@@ -140,9 +148,10 @@ def crear_ventana():
 
     client = mqtt.Client(CallbackAPIVersion.VERSION2, "InterfazGlobal", transport="websockets")
 
-    # me conecto al broker publico y gratuito
-    broker_address = "broker.hivemq.com"
+    # me conecto al broker de la universidad
+    broker_address = "dronseetac.upc.edu"
     broker_port = 8000
+    client.username_pw_set("dronsEETAC", "mimara1456.")
 
     client.on_message = on_message
     client.on_connect = on_connect

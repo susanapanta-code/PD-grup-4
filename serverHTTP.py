@@ -94,10 +94,12 @@ mqtt_client = mqtt.Client(
 mqtt_client.on_connect = on_connect
 mqtt_client.on_message = on_message
 
-broker_address = "broker.hivemq.com"
-broker_port = 8000
+broker_address = "dronseetac.upc.edu"
+broker_port = 8000  # WebSockets
 
-print("[MQTT] Conectando al broker HiveMQ...")
+mqtt_client.username_pw_set("dronsEETAC", "mimara1456.")
+
+print(f"[MQTT] Conectando al broker {broker_address}:{broker_port}...")
 mqtt_client.connect(broker_address, broker_port)
 mqtt_client.loop_start()  # hilo de fondo para MQTT
 

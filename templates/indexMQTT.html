@@ -3,197 +3,416 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebApp Dron V2</title>
+
+    <!-- Scripts y Estilos -->
     <script src="https://cdn.jsdelivr.net/npm/mqtt/dist/mqtt.min.js"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- Leaflet para Mapas -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <style>
+        .boton {
+            font-size: 18px;
+            padding: 10px;
+            margin: 5px 0;
+            cursor: pointer;
+            background-color: #008CBA;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            width: 100%;
+            transition: background-color 0.3s;
+        }
+        .boton-verde { background-color: #4CAF50 !important; }
+        .boton-amarillo { background-color: #FFD700 !important; color: black !important; }
+
+        /* Controles de Dirección */
+        .direction {
+            display: grid;
+            grid-template-rows: 80px 80px 80px;
+            grid-template-columns: 80px 80px 80px;
+            text-align: center;
+            width: 240px;
+            margin: 20px auto;
+        }
+        .box {
+            background: #444;
+            border: 1px solid #555;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: yellowgreen;
+            font-size: 14px;
+            margin: 2px;
+            cursor: pointer;
+            user-select: none;
+        }
+        .box:active { background: #666; }
+
+        /* Mapa */
+        #map { height: 500px; width: 100%; margin-top: 10px; }
+
+        /* Video */
+        #video-container { width: 100%; max-width: 640px; margin: 0 auto; background: #000; }
+        video { width: 100%; height: auto; display: block; }
+    </style>
 </head>
-
-<style>
-    .boton {
-        font-size: 18px;
-        padding: 10px;
-        margin: 5px 0;
-        cursor: pointer;
-        background-color: #008CBA;
-        color: white;
-        border: none;
-        border-radius: 5px;
-        width: 100%;
-        transition: background-color 0.3s;
-    }
-
-    .boton-verde { background-color: #4CAF50; }
-    .boton-amarillo { background-color: #FFD700; }
-    .boton-rojo { background-color: #f44336; }
-
-    .direction {
-        display: grid;
-        grid-template-rows: 100px 100px 100px;
-        grid-template-columns: 100px 100px 100px;
-        text-align: center;
-        width:80%;
-        margin: 20px auto;
-    }
-
-    .box {
-        background: #444;
-        border: 1px solid #555;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: yellowgreen;
-        font-size: 18px;
-        margin: 5px;
-        cursor: pointer;
-    }
-</style>
 
 <body>
     <div class="container mt-3">
+        <h2 class="text-center mb-3">Control de Dron - Versión 2</h2>
 
-        <!-- 🔵 Botón de conectar (arriba del todo, ancho completo) -->
-        <button id="botonConectar" class="boton" onclick="conectarDron()">Conectar con Dron</button>
+        <!-- Navegación por Pestañas -->
+        <ul class="nav nav-tabs" id="myTab" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="control-tab" data-bs-toggle="tab" data-bs-target="#control" type="button" role="tab" aria-controls="control" aria-selected="true">🕹 Control</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="mapa-tab" data-bs-toggle="tab" data-bs-target="#mapa" type="button" role="tab" aria-controls="mapa" aria-selected="false">🗺 Mapa</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="video-tab" data-bs-toggle="tab" data-bs-target="#video" type="button" role="tab" aria-controls="video" aria-selected="false">📷 Video</button>
+            </li>
+        </ul>
 
-        <!-- 🔵 Altura + despegar (segunda fila, orden vertical, ancho completo) -->
-        <input type="number" id="altura" class="form-control mb-2" placeholder="Altura en metros">
-        <button id="botonDespegar" class="boton" onclick="despegarDron()">Despegar</button>
+        <!-- Contenido de Pestañas -->
+        <div class="tab-content" id="myTabContent">
 
-        <!-- 🔵 Botón de aterrizar (tercera fila, ancho completo) -->
-        <button id="botonAterrizar" class="boton" onclick="aterrizarDron()">Aterrizar Dron</button>
+            <!-- PESTAÑA 1: CONTROL (Botones) -->
+            <div class="tab-pane fade show active p-3" id="control" role="tabpanel" aria-labelledby="control-tab">
 
-        <!-- 🔵 Botón RTL -->
-        <button id="botonRTL" class="boton" onclick="rtlDron()">RTL</button>
+                <button id="botonConectar" class="boton" onclick="conectarDron()">Conectar con Dron</button>
 
-        <!-- 🔵 Botones de dirección -->
-        <div class="direction">
-            <div onclick="moverDron('NorthWest')" class="box">NW</div>
-            <div onclick="moverDron('North')" class="box">N</div>
-            <div onclick="moverDron('NorthEast')" class="box">NE</div>
-            <div onclick="moverDron('West')" class="box">W</div>
-            <div onclick="moverDron('Stop')" class="box">Stop</div>
-            <div onclick="moverDron('East')" class="box">E</div>
-            <div onclick="moverDron('SouthWest')" class="box">SW</div>
-            <div onclick="moverDron('South')" class="box">S</div>
-            <div onclick="moverDron('SouthEast')" class="box">SE</div>
-        </div>
+                <div class="row">
+                    <div class="col-8">
+                        <input type="number" id="altura" class="form-control" placeholder="Altura (m)">
+                    </div>
+                    <div class="col-4">
+                        <button id="botonDespegar" class="boton mt-0" onclick="despegarDron()">Despegar</button>
+                    </div>
+                </div>
 
-        <!-- 🔵 Control de Heading -->
-        <div class="mb-2">
-            <label for="headingSlider"><strong>Orientación (Heading):</strong></label>
-            <input type="range" id="headingSlider" class="form-range" min="0" max="360" value="0" step="1"
-                oninput="headingValue.innerText = this.value"
-                onpointerdown="arrastrando = true"
-                onpointerup="soltarSlider()"
-                ontouchend="soltarSlider()">
-            <span id="headingValue">0</span>°
-            <button id="botonHeading" class="boton mt-2" onclick="cambiarHeading()">Cambiar Heading</button>
-        </div>
+                <div class="row">
+                    <div class="col-6">
+                        <button id="botonAterrizar" class="boton" onclick="aterrizarDron()">Aterrizar</button>
+                    </div>
+                    <div class="col-6">
+                        <button id="botonRTL" class="boton" onclick="rtlDron()">RTL</button>
+                    </div>
+                </div>
 
-        <!-- 🔵 Altitud debajo de los 9 botones, ancho completo -->
-        <div id="telemetriaDiv" style="font-size: 24px; text-align: center; width:100%; margin-top: 20px;">
-            <p><strong>Altitud:</strong> <span id="altitudValor">0</span> m</p>
+                <!-- Botones Dirección -->
+                <div class="direction">
+                    <div onclick="moverDron('NorthWest')" class="box">NW</div>
+                    <div onclick="moverDron('North')" class="box">N</div>
+                    <div onclick="moverDron('NorthEast')" class="box">NE</div>
+                    <div onclick="moverDron('West')" class="box">W</div>
+                    <div onclick="moverDron('Stop')" class="box">Stop</div>
+                    <div onclick="moverDron('East')" class="box">E</div>
+                    <div onclick="moverDron('SouthWest')" class="box">SW</div>
+                    <div onclick="moverDron('South')" class="box">S</div>
+                    <div onclick="moverDron('SouthEast')" class="box">SE</div>
+                </div>
+
+                <!-- Heading -->
+                <div class="mb-2 text-center">
+                    <label><strong>Heading:</strong> <span id="headingValue">0</span>°</label>
+                    <input type="range" id="headingSlider" class="form-range" min="0" max="360" value="0" step="1"
+                        oninput="document.getElementById('headingValue').innerText = this.value"
+                        onpointerdown="arrastrando = true"
+                        onpointerup="soltarSlider()"
+                        ontouchend="soltarSlider()">
+                    <button id="botonHeading" class="boton mt-1 w-50" onclick="cambiarHeading()">Aplicar Giro</button>
+                </div>
+
+                <!-- Telemetría Simple -->
+                <div class="alert alert-info text-center mt-3">
+                    <strong>Altitud:</strong> <span id="altitudValor">0</span> m |
+                    <strong>Velocidad:</strong> <span id="speedValor">0</span> m/s |
+                    <strong>Estado:</strong> <span id="estadoValor">--</span>
+                </div>
+            </div>
+
+            <!-- PESTAÑA 2: MAPA -->
+            <div class="tab-pane fade p-3" id="mapa" role="tabpanel" aria-labelledby="mapa-tab">
+                <div id="telemetriaMapa" class="mb-2">
+                    Posición actual: <span id="latLonMap">Esperando datos...</span>
+                </div>
+                <div id="map"></div>
+                <button class="btn btn-secondary mt-2 btn-sm" onclick="centrarMapa()">Centrar Mapa</button>
+            </div>
+
+            <!-- PESTAÑA 3: VIDEO -->
+            <div class="tab-pane fade p-3 text-center" id="video" role="tabpanel" aria-labelledby="video-tab">
+                <h3>Video Streaming (WebRTC)</h3>
+                <div id="video-container">
+                    <video id="remoteVideo" autoplay playsinline controls></video>
+                </div>
+                <button id="btnStartVideo" class="boton mt-3 w-50" onclick="startVideo()">Iniciar Video</button>
+                <p class="text-muted mt-2 small">Asegurar que CameraService.py está corriendo en el puerto 8080.</p>
+            </div>
         </div>
 
     </div>
 
+    <!-- LÓGICA DE LA APLICACIÓN -->
     <script>
-        const client = mqtt.connect('ws://broker.hivemq.com:8000/mqtt', {
+        // ================= MQTT CONFIG =================
+        // Configuración para el broker de la UPC (asegurar que coincida con lo solicitado)
+        const MQTT_BROKER = 'ws://dronseetac.upc.edu:8000/mqtt';
+        const MQTT_USER = 'dronsEETAC';
+        const MQTT_PASS = 'mimara1456.';
+
+        const client = mqtt.connect(MQTT_BROKER, {
+            username: MQTT_USER,
+            password: MQTT_PASS,
             clean: false,
-            keepalive: 60,
-            clientId: 'webapp_grupo4_' + Math.random().toString(16).substr(2, 8),
-            reconnectPeriod: 1000,
+            clientId: 'webapp_v2_' + Math.random().toString(16).substr(2, 8),
+            reconnectPeriod: 2000,
         });
 
-        // Bloquea la actualización del slider mientras el usuario lo arrastra
+        // Variables de estado
         let arrastrando = false;
         let timerSoltar = null;
 
-        function soltarSlider() {
-            // Espera 5 segundos antes de volver a permitir que la telemetría actualice el slider
-            // Así el usuario tiene tiempo de pulsar "Cambiar Heading"
-            clearTimeout(timerSoltar);
-            timerSoltar = setTimeout(() => { arrastrando = false; }, 5000);
-        }
+        // Mapa
+        let map;
+        let droneMarker;
+        let dronePath;
+        let pathCoords = [];
+        let mapInitialized = false;
+
+        // ================= MQTT LÓGICA =================
 
         client.on('connect', function () {
             console.log('Conectado al broker MQTT');
             client.subscribe('autopilotServiceDemo/mobileFlask/#');
+            initMap(); // Inicializar mapa al conectar (o al cargar página)
         });
 
         client.on('message', function (topic, message) {
-            if (topic === "autopilotServiceDemo/mobileFlask/telemetryInfo") {
-                const data = JSON.parse(message.toString());
-                const alt = data.alt;
-                const estado = data.state;
-
-                if (estado === "flying") {
-                    const botonDespegar = document.getElementById('botonDespegar');
-                    botonDespegar.classList.remove('boton-amarillo');
-                    botonDespegar.classList.add('boton-verde');
-                }
-                if (estado === "landed") {
-                    const botonAterrizar = document.getElementById('botonAterrizar');
-                    botonAterrizar.classList.remove('boton-amarillo');
-                    botonAterrizar.classList.add('boton-verde');
-                }
-                if (estado === "rtl") {
-                    const botonRTL = document.getElementById('botonRTL');
-                    botonRTL.classList.remove('boton-amarillo');
-                    botonRTL.classList.add('boton-verde');
-                }
-
-                document.getElementById("altitudValor").innerText = alt.toFixed(2);
-
-                // Si la telemetría incluye heading, mostrarlo (solo si el usuario no está moviendo el slider)
-                if (data.heading !== undefined && !arrastrando) {
-                    document.getElementById('headingSlider').value = data.heading;
-                    document.getElementById('headingValue').innerText = data.heading;
-                    document.getElementById('botonHeading').classList.remove('boton-amarillo');
-                    document.getElementById('botonHeading').classList.add('boton-verde');
+            if (topic.includes("telemetryInfo")) {
+                try {
+                    const data = JSON.parse(message.toString());
+                    actualizarTelemetria(data);
+                    actualizarMapa(data);
+                } catch (e) {
+                    console.error("Error parseando JSON:", e);
                 }
             }
         });
 
-        function conectarDron() {
-            client.publish('mobileFlask/autopilotServiceDemo/connect');
-            document.getElementById('botonConectar').classList.add('boton-verde');
-            client.publish('mobileFlask/autopilotServiceDemo/startTelemetry');
-        }
+        function actualizarTelemetria(data) {
+            document.getElementById("altitudValor").innerText = (data.alt || 0).toFixed(2);
+            document.getElementById("speedValor").innerText = (data.groundSpeed || 0).toFixed(1);
+            document.getElementById("estadoValor").innerText = data.state || 'Desconocido';
 
-        function despegarDron() {
-            const altura = document.getElementById('altura').value;
-            if (altura) {
-                client.publish('mobileFlask/autopilotServiceDemo/arm_takeOff', altura);
-                document.getElementById('botonDespegar').classList.add('boton-amarillo');
-            } else {
-                alert("Por favor, ingrese una altura válida.");
+            // Actualizar botones según estado
+            const st = data.state;
+            if (st === "flying") setBtnSuccess('botonDespegar');
+            if (st === "landed") setBtnSuccess('botonAterrizar');
+            if (st === "rtl" || st === "atHome") setBtnSuccess('botonRTL');
+            if (st === "connected") setBtnSuccess('botonConectar');
+
+            // Actualizar slider heading si no se está usando
+            if (data.heading !== undefined && !arrastrando) {
+                document.getElementById('headingSlider').value = Math.round(data.heading);
+                document.getElementById('headingValue').innerText = Math.round(data.heading);
+                resetBtn('botonHeading');
             }
         }
 
+        // ================= MAPA (LEAFLET) =================
+
+        function initMap() {
+            if (mapInitialized) return;
+            // Coordenadas iniciales por defecto (Castelldefels EETAC)
+            const latIni = 41.275;
+            const lonIni = 1.987;
+
+            map = L.map('map').setView([latIni, lonIni], 18);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(map);
+
+            // Icono del dron (puedes personalizarlo)
+            var droneIcon = L.icon({
+                iconUrl: 'https://upload.wikimedia.org/wikipedia/commons/d/d1/Google_Maps_pin.svg', // Placeholder pin
+                iconSize: [30, 30],
+                iconAnchor: [15, 30]
+            });
+
+            droneMarker = L.marker([latIni, lonIni], {icon: droneIcon}).addTo(map);
+            dronePath = L.polyline([], {color: 'red'}).addTo(map);
+
+            // Corrige problema de renderizado de Leaflet en pestañas ocultas
+            // Al cambiar a la pestaña mapa, invalidar tamaño
+            document.getElementById('mapa-tab').addEventListener('shown.bs.tab', function (e) {
+                map.invalidateSize();
+            });
+
+            mapInitialized = true;
+        }
+
+        function actualizarMapa(data) {
+            if (!mapInitialized || !data.lat || !data.lon) return;
+
+            const lat = data.lat;
+            const lon = data.lon;
+
+            // Algunos simuladores envían 0,0 al inicio, ignorar
+            if (Math.abs(lat) < 0.1 && Math.abs(lon) < 0.1) return;
+
+            const newLatLng = [lat, lon];
+
+            droneMarker.setLatLng(newLatLng);
+            pathCoords.push(newLatLng);
+            dronePath.setLatLngs(pathCoords);
+
+            document.getElementById('latLonMap').innerText = `${lat.toFixed(6)}, ${lon.toFixed(6)}`;
+
+            // Auto-centrar la primera vez que recibimos coord validas
+            if (pathCoords.length === 1) {
+                map.setView(newLatLng, 18);
+            }
+        }
+
+        function centrarMapa() {
+            if (droneMarker) {
+                map.setView(droneMarker.getLatLng(), map.getZoom());
+            }
+        }
+
+        // ================= VIDEO (WebRTC) =================
+        // Se comunica con CameraService.py en puerto 8080 (servimos oferta SDP via HTTP POST)
+
+        async function startVideo() {
+            const videoEl = document.getElementById('remoteVideo');
+            const btn = document.getElementById('btnStartVideo');
+
+            btn.disabled = true;
+            btn.innerText = "Conectando...";
+
+            const pc = new RTCPeerConnection();
+
+            // Configurar qué hacer cuando llegue el stream
+            pc.ontrack = function(event) {
+                if (videoEl.srcObject !== event.streams[0]) {
+                    videoEl.srcObject = event.streams[0];
+                    console.log('Stream de video recibido');
+                }
+            };
+
+            // Solo necesitamos recibir video (addTransceiver recvonly)
+            pc.addTransceiver('video', {direction: 'recvonly'});
+
+            // Crear oferta WebRTC
+            const offer = await pc.createOffer();
+            await pc.setLocalDescription(offer);
+
+            // Enviar oferta al servidor CameraService
+            // IMPORTANTE: Asegúrate de que el puerto sea el correcto (8080 por defecto en nuestro script nuevo)
+            try {
+                const response = await fetch('http://localhost:8080/offer', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        sdp: pc.localDescription.sdp,
+                        type: pc.localDescription.type
+                    })
+                });
+
+                if (!response.ok) throw new Error("Error en respuesta del servidor");
+
+                const answer = await response.json();
+                await pc.setRemoteDescription(answer);
+
+                btn.innerText = "Video Activo";
+                btn.classList.add('boton-verde');
+
+            } catch (e) {
+                console.error(e);
+                alert("No se pudo conectar al servicio de cámara.\nAsegúrate de ejecutar: python CameraService.py");
+                btn.innerText = "Reintentar";
+                btn.disabled = false;
+                pc.close();
+            }
+        }
+
+
+        // ================= FUNCIONES DE CONTROL =================
+
+        function conectarDron() {
+            mqttPublish('connect');
+            mqttPublish('startTelemetry');
+        }
+
+        function despegarDron() {
+            const h = document.getElementById('altura').value || 5;
+            mqttPublish('arm_takeOff', h.toString());
+            setBtnPending('botonDespegar');
+        }
+
         function aterrizarDron() {
-            client.publish('mobileFlask/autopilotServiceDemo/Land');
-            document.getElementById('botonAterrizar').classList.remove('boton-verde');
-            document.getElementById('botonAterrizar').classList.add('boton-amarillo');
+            mqttPublish('Land');
+            setBtnPending('botonAterrizar');
         }
 
         function rtlDron() {
-            client.publish('mobileFlask/autopilotServiceDemo/RTL');
-            document.getElementById('botonRTL').classList.remove('boton-verde');
-            document.getElementById('botonRTL').classList.add('boton-amarillo');
+            mqttPublish('RTL');
+            setBtnPending('botonRTL');
         }
 
-        function moverDron(direction) {
-            client.publish('mobileFlask/autopilotServiceDemo/go', direction);
+        function moverDron(dir) {
+            mqttPublish('go', dir);
         }
 
         function cambiarHeading() {
-            const heading = document.getElementById('headingSlider').value;
-            client.publish('mobileFlask/autopilotServiceDemo/changeHeading', heading.toString());
-            document.getElementById('botonHeading').classList.add('boton-amarillo');
-            // Al enviar el comando, cancelar el temporizador y liberar el slider
+            const val = document.getElementById('headingSlider').value;
+            mqttPublish('changeHeading', val.toString());
+            setBtnPending('botonHeading');
+
             clearTimeout(timerSoltar);
-            arrastrando = false;
+            arrastrando = false; // Liberar slider tras enviar
         }
+
+        function soltarSlider() {
+            clearTimeout(timerSoltar);
+            timerSoltar = setTimeout(() => { arrastrando = false; }, 3000);
+        }
+
+        // Helpers de UI
+        function setBtnSuccess(id) {
+            const b = document.getElementById(id);
+            if(b) {
+                b.classList.remove('boton-amarillo');
+                b.classList.add('boton-verde');
+            }
+        }
+        function setBtnPending(id) {
+            const b = document.getElementById(id);
+            if(b) {
+                b.classList.remove('boton-verde');
+                b.classList.add('boton-amarillo');
+            }
+        }
+        function resetBtn(id) {
+            const b = document.getElementById(id);
+            if(b) b.classList.remove('boton-verde', 'boton-amarillo');
+        }
+
+        function mqttPublish(cmd, payload = "") {
+            // Topic destino: mobileFlask/autopilotServiceDemo/<comando>
+            // Topic origen (respuesta): autopilotServiceDemo/mobileFlask/<evento>
+            const topic = `mobileFlask/autopilotServiceDemo/${cmd}`;
+            client.publish(topic, payload);
+            console.log("CMD:", topic, payload);
+        }
+
     </script>
 
 </body>

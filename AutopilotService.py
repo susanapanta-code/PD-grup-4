@@ -8,74 +8,83 @@ import json
 import threading
 from dronLink.Dron import Dron
 
-# esta función sirve para publicar los eventos resultantes de las acciones solicitadas
-def publish_event (event):
-    global sending_topic, client
-    topic = sending_topic + '/'+event
-    print(f"Publicando evento: {topic}")
-    client.publish(topic)
+# esta función sirve para generar un publisher específico para un origen
+def create_publish_event(client, origin):
+    def publish_event(event):
+        topic = f"autopilotServiceDemo/{origin}/{event}"
+        print(f"Publicando evento: {topic}")
+        client.publish(topic)
+    return publish_event
 
-
-def publish_telemetry_info (telemetry_info):
-    # cuando reciba datos de telemetría los publico
-    global sending_topic, client
-    client.publish(sending_topic + '/telemetryInfo', json.dumps(telemetry_info))
+def create_publish_telemetry(client, origin):
+    def publish_telemetry_info(telemetry_info):
+        topic = f"autopilotServiceDemo/{origin}/telemetryInfo"
+        client.publish(topic, json.dumps(telemetry_info))
+    return publish_telemetry_info
 
 
 def on_message(cli, userdata, message):
-    global  sending_topic, client
     global dron
     # el mensaje que se recibe tiene este formato:
     #    "origen"/autopilotServiceDemo/"command"
-    # tengo que averiguar el origen y el command
-    splited = message.topic.split("/")
+
+    try:
+        topic_str = message.topic
+        payload_str = message.payload.decode('utf-8')
+    except:
+        return
+
+    splited = topic_str.split("/")
     if len(splited) < 3:
         return
-    origin = splited[0] # aqui tengo el nombre de la aplicación que origina la petición
-    command = splited[2] # aqui tengo el comando
 
-    # IMPORTANTE: Ignorar los mensajes que publica este propio servicio.
-    # La suscripción +/autopilotServiceDemo/# también captura
-    # autopilotServiceDemo/origen/telemetryInfo (nuestras propias publicaciones).
-    # Si origin == "autopilotServiceDemo" es un eco de lo que publicamos nosotros.
+    origin = splited[0] # nombre de la aplicación origen
+    command = splited[2] # comando
+
+    # IMPORTANTE: Ignorar ecos (mensajes enviados por nosotros mismos)
     if origin == "autopilotServiceDemo":
         return
 
-    print(f"Mensaje recibido: topic={message.topic}, payload={message.payload.decode('utf-8')}, dron.state={dron.state}")
+    print(f"Mensaje recibido: topic={topic_str}, payload={payload_str}, dron.state={dron.state}")
 
-    sending_topic = "autopilotServiceDemo/" + origin # lo necesitaré para enviar las respuestas
+    # Crear funciones de callback específicas para este origen
+    # Esto evita el uso de variables globales y permite concurrencia
+    publish_event = create_publish_event(cli, origin)
+    publish_telemetry = create_publish_telemetry(cli, origin)
 
     if command == 'connect':
         if dron.state != 'disconnected':
-            # Ya conectado — avisamos al cliente y nos aseguramos de que la telemetría va
             print(f'Dron ya conectado (state={dron.state}), reenviando evento connected')
             publish_event('connected')
-            if not dron.sendTelemetryInfo:
-                dron.send_telemetry_info(publish_telemetry_info)
-                print('Telemetría reiniciada')
+            # Si ya estábamos enviando telemetría, aseguramos que este nuevo cliente también reciba
+            # (Nota: DronLink generalmente soporta un solo callback de telemetría a la vez en esta versión simple,
+            #  pero al menos refrescamos la conexión lógica).
+            dron.send_telemetry_info(publish_telemetry)
         else:
-            connection_string = 'COM14'
-            baud = 57600
-            print('Conectando al dron...')
-            # Ejecutar en hilo aparte para NO bloquear el loop MQTT
+            connection_string = 'tcp:127.0.0.1:5762'
+            baud = 115200
+            print(f'Conectando al dron en {connection_string}...')
+
             def do_connect():
-                dron.connect(connection_string, baud, freq=10)
-                print(f'Dron conectado, state={dron.state}')
-                publish_event('connected')
-                # Iniciar telemetría automáticamente al conectar
-                dron.send_telemetry_info(publish_telemetry_info)
-                print('Telemetría iniciada automáticamente')
+                try:
+                    dron.connect(connection_string, baud, freq=10)
+                    print(f'Dron conectado, state={dron.state}')
+                    publish_event('connected')
+                    dron.send_telemetry_info(publish_telemetry)
+                    print('Telemetría iniciada automáticamente')
+                except Exception as e:
+                    print(f"Error conectando: {e}")
+
             threading.Thread(target=do_connect, daemon=True).start()
 
     if command == 'arm_takeOff':
         print(f'Comando arm_takeOff recibido, dron.state={dron.state}')
         if dron.state == 'connected':
-            # leer la altura del payload; si no viene, usar 5 por defecto
             try:
-                alt = float(message.payload.decode("utf-8"))
+                alt = float(payload_str)
             except:
                 alt = 5
-            # Ejecutar en hilo aparte para NO bloquear el loop MQTT
+
             def do_arm_takeoff():
                 try:
                     print(f'vamos a armar, altura={alt}')
@@ -85,62 +94,58 @@ def on_message(cli, userdata, message):
                         print('vamos a despegar')
                         dron.takeOff(alt, blocking=False, callback=publish_event, params='flying')
                     else:
-                        print(f'ERROR: arm() completó pero state={dron.state}, no se puede despegar')
+                        print(f'ERROR: arm() completó pero state={dron.state}')
                 except Exception as e:
                     print(f'ERROR en arm/takeoff: {e}')
             threading.Thread(target=do_arm_takeoff, daemon=True).start()
         else:
-            print(f'No se puede despegar: dron.state={dron.state} (se esperaba "connected")')
+            print(f'No se puede despegar: dron.state={dron.state}')
 
     if command == 'go':
         print(f'Comando go recibido, dron.state={dron.state}')
         if dron.state == 'flying':
-            direction = message.payload.decode("utf-8")
-            # go() no es bloqueante en sí, pero lo lanzamos en hilo por seguridad
+            direction = payload_str
             threading.Thread(target=dron.go, args=[direction], daemon=True).start()
         else:
-            print(f'No se puede mover: dron.state={dron.state} (se esperaba "flying")')
+            print(f'No se puede mover: dron.state={dron.state}')
 
     if command == 'Land':
         print(f'Comando Land recibido, dron.state={dron.state}')
         if dron.state == 'flying':
-            # operación no bloqueante. Cuando acabe publicará el evento correspondiente
             dron.Land(blocking=False, callback=publish_event, params='landed')
         else:
-            print(f'No se puede aterrizar: dron.state={dron.state} (se esperaba "flying")')
+            print(f'No se puede aterrizar: dron.state={dron.state}')
 
     if command == 'RTL':
         print(f'Comando RTL recibido, dron.state={dron.state}')
         if dron.state == 'flying':
-            # operación no bloqueante. Cuando acabe publicará el evento correspondiente
             dron.RTL(blocking=False, callback=publish_event, params='atHome')
         else:
-            print(f'No se puede RTL: dron.state={dron.state} (se esperaba "flying")')
+            print(f'No se puede RTL: dron.state={dron.state}')
 
     if command == 'startTelemetry':
         print(f'Comando startTelemetry recibido, dron.state={dron.state}')
         if dron.state != 'disconnected':
-            # indico qué función va a procesar los datos de telemetría cuando se reciban
-            dron.send_telemetry_info(publish_telemetry_info)
-        else:
-            print('No se puede iniciar telemetría: dron no conectado aún')
+            dron.send_telemetry_info(publish_telemetry)
 
     if command == 'stopTelemetry':
         dron.stop_sending_telemetry_info()
 
     if command == 'changeHeading':
         if dron.state == 'flying':
-            heading = int(message.payload.decode("utf-8"))
-            # changeHeading es BLOQUEANTE (espera a que el dron alcance el heading)
-            # DEBE ejecutarse en hilo aparte para no bloquear el loop MQTT
-            threading.Thread(target=dron.changeHeading, args=[heading], daemon=True).start()
+            try:
+                heading = int(payload_str)
+                threading.Thread(target=dron.changeHeading, args=[heading], daemon=True).start()
+            except:
+                pass
 
     if command == 'changeNavSpeed':
         if dron.state == 'flying':
-            speed = float(message.payload.decode("utf-8"))
-            # changeNavSpeed llama a setParams (bloqueante) y luego a go()
-            # DEBE ejecutarse en hilo aparte para no bloquear el loop MQTT
-            threading.Thread(target=dron.changeNavSpeed, args=[speed], daemon=True).start()
+            try:
+                speed = float(payload_str)
+                threading.Thread(target=dron.changeNavSpeed, args=[speed], daemon=True).start()
+            except:
+                pass
 
 
 def on_connect(client, userdata, flags, reason_code, properties):
@@ -159,9 +164,10 @@ dron = Dron()
 
 client = mqtt.Client(CallbackAPIVersion.VERSION2, "autopilotServiceDemo", transport="websockets")
 
-# me conecto al broker publico y gratuito
-broker_address = "broker.hivemq.com"
+# me conecto al broker de la universidad
+broker_address = "dronseetac.upc.edu"
 broker_port = 8000
+client.username_pw_set("dronsEETAC", "mimara1456.")
 
 client.on_message = on_message
 client.on_connect = on_connect
