@@ -1,4 +1,4 @@
-﻿using MQTTnet;
+﻿﻿using MQTTnet;
 using MQTTnet.Client;
 using MQTTnet.Client.Options;
 using Newtonsoft.Json;
@@ -60,7 +60,7 @@ namespace Formulario
             });
 
             await client.ConnectAsync(options);
-            await client.SubscribeAsync("autopilotServiceDemo/interfazGlobal/#");
+            await client.SubscribeAsync("autopilotService04/interfazGlobal/#");
         }
 
         private void ProcesarMensaje(string topic, string payload)
@@ -207,7 +207,7 @@ namespace Formulario
 
         private async void but_connect_Click(object sender, EventArgs e)
         {
-            await client.PublishAsync("interfazGlobal/autopilotServiceDemo/connect");
+            await client.PublishAsync("interfazGlobal/autopilotService04/connect");
         }
 
         private async void but_takeoff_Click(object sender, EventArgs e)
@@ -217,7 +217,7 @@ namespace Formulario
             despegarBtn.BackColor = Color.Yellow;
             despegarBtn.Text = "Despegando...";
 
-            await client.PublishAsync("interfazGlobal/autopilotServiceDemo/arm_takeOff");
+            await client.PublishAsync("interfazGlobal/autopilotService04/arm_takeOff");
         }
 
         private async void aterrizarBtn_Click(object sender, EventArgs e)
@@ -227,7 +227,7 @@ namespace Formulario
             button7.BackColor = Color.Yellow;
             button7.Text = "Aterrizando...";
 
-            await client.PublishAsync("interfazGlobal/autopilotServiceDemo/Land");
+            await client.PublishAsync("interfazGlobal/autopilotService04/Land");
         }
 
         private async void RTLBtn_Click(object sender, EventArgs e)
@@ -237,7 +237,7 @@ namespace Formulario
             button6.BackColor = Color.Yellow;
             button6.Text = "Retornando...";
 
-            await client.PublishAsync("interfazGlobal/autopilotServiceDemo/RTL");
+            await client.PublishAsync("interfazGlobal/autopilotService04/RTL");
         }
 
         private async void navButton_Click(object sender, EventArgs e)
@@ -246,7 +246,7 @@ namespace Formulario
             string direccion = b.Tag.ToString();
 
             await client.PublishAsync(
-                "interfazGlobal/autopilotServiceDemo/go",
+                "interfazGlobal/autopilotService04/go",
                 Encoding.UTF8.GetBytes(direccion)
             );
         }
@@ -261,14 +261,14 @@ namespace Formulario
                 MostrarTelemetria(ultimaTelemetria);
             }
 
-            await client.PublishAsync("interfazGlobal/autopilotServiceDemo/startTelemetry");
+            await client.PublishAsync("interfazGlobal/autopilotService04/startTelemetry");
         }
 
         private async void detenerTelemetriaBtn_Click(object sender, EventArgs e)
         {
             telemetriaActiva = false;
 
-            await client.PublishAsync("interfazGlobal/autopilotServiceDemo/stopTelemetry");
+            await client.PublishAsync("interfazGlobal/autopilotService04/stopTelemetry");
         }
 
         private void headingTrackBar_Scroll(object sender, EventArgs e)
@@ -281,7 +281,7 @@ namespace Formulario
             int valor = headingTrackBar.Value;
 
             await client.PublishAsync(
-                "interfazGlobal/autopilotServiceDemo/changeHeading",
+                "interfazGlobal/autopilotService04/changeHeading",
                 Encoding.UTF8.GetBytes(valor.ToString())
             );
         }
@@ -296,7 +296,7 @@ namespace Formulario
             int valor = velocidadTrackBar.Value;
 
             await client.PublishAsync(
-                "interfazGlobal/autopilotServiceDemo/changeNavSpeed",
+                "interfazGlobal/autopilotService04/changeNavSpeed",
                 Encoding.UTF8.GetBytes(valor.ToString())
             );
         }
@@ -308,7 +308,7 @@ namespace Formulario
 
         private async void ArmarBtn_Click_Click(object sender, EventArgs e)
         {
-            await client.PublishAsync("interfazGlobal/autopilotServiceDemo/arm_takeOff");
+            await client.PublishAsync("interfazGlobal/autopilotService04/arm_takeOff");
         }
 
         private async void CoreWebView2_WebMessageReceived(object sender, Microsoft.Web.WebView2.Core.CoreWebView2WebMessageReceivedEventArgs e)
@@ -324,7 +324,7 @@ namespace Formulario
             string lonStr = lon.ToString(CultureInfo.InvariantCulture);
 
             await client.PublishAsync(
-                "interfazGlobal/autopilotServiceDemo/goTo",
+                "interfazGlobal/autopilotService04/goTo",
                 Encoding.UTF8.GetBytes($"{latStr},{lonStr}")
             );
         }

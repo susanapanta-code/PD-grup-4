@@ -23,6 +23,7 @@ import sys
 import time
 import uuid
 import tempfile
+import socket
 
 from typing import Optional, Tuple
 
@@ -61,11 +62,13 @@ FG_ACTIVO = "white"
 FG_NO_DISPONIBLE = "#D0D0D0"
 
 # Broker MQTT (modo Global)
-BROKER_ADDRESS = "broker.hivemq.com"
+BROKER_ADDRESS = "dronseetac.upc.edu"
 BROKER_PORT = 8000
+BROKER_USER = "dronsEETAC"
+BROKER_PASS = "mimara1456."
 MQTT_CLIENT_ID = "InterfazGlobalV2"
 MQTT_ORIGIN_PREFIX = "interfazGlobalV2"
-MQTT_SERVICE_NAME = "autopilotServiceDemo"
+MQTT_SERVICE_NAME = "autopilotService04"
 # Conexion local por defecto (modo Local)
 LOCAL_CONNECTION_STRING = "tcp:127.0.0.1:5763"
 LOCAL_BAUD = 115200
@@ -179,6 +182,10 @@ class CameraServiceManager:
         print(msg)
 
     @property
+    def owns_service(self):
+        return self._owns_service
+
+    @property
     def is_running(self):
         return bool(self._proc and self._proc.poll() is None)
 
@@ -223,8 +230,10 @@ class CameraServiceManager:
 
             self._proc = subprocess.Popen(
                 [sys.executable, script_path],
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
+                # Modificado para redirigir trazas a stdout/stderr del proceso padre
+                # para poder diagnosticar errores (ej. WinError 1225)
+                # stdout=subprocess.DEVNULL,
+                # stderr=subprocess.DEVNULL,
                 creationflags=creationflags,
             )
             # Si el proceso cae nada mas arrancar, lo detectamos aqui.
@@ -479,6 +488,8 @@ class GlobalController:
             client_id,
             transport="websockets",
         )
+        self._client.ws_set_options(path="/mqtt")
+        self._client.username_pw_set(BROKER_USER, BROKER_PASS)
         self._client.on_message = on_message_cb
         self._client.on_connect = on_connect_cb
         self._client.on_disconnect = self._on_disconnect
@@ -740,7 +751,21 @@ def _camera_host():
     # En modo local forzamos IPv4 para evitar conflictos localhost (::1 vs 127.0.0.1).
     if _es_local():
         return CAMERA_SERVER_IP_LOCAL
+    # Si estamos en global pero la IP es localhost, tambien forzamos IPv4.
+    if CAMERA_SERVER_IP in ("localhost", "0.0.0.0", "127.0.0.1"):
+        return CAMERA_SERVER_IP_LOCAL
     return CAMERA_SERVER_IP
+
+
+def _is_port_open(host, port):
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.settimeout(1)
+    try:
+        s.connect((host, port))
+        s.close()
+        return True
+    except:
+        return False
 
 
 async def _wait_camera_service(stop_event, status_cb=None):
@@ -748,13 +773,27 @@ async def _wait_camera_service(stop_event, status_cb=None):
     if status_cb:
         status_cb("[Camara] Preparando servicio de camara...")
 
+    target_host = _camera_host()
+
+    # Si el target es localhost, esperamos que el proceso levante.
+    # En un escenario global real (IP remota), asumimos que ya está activo o esperamos conexión.
     waited = 0.0
-    while waited < 5.0 and not stop_event.is_set():
-        if camera_service_manager is not None and camera_service_manager.is_running:
+    while waited < 8.0 and not stop_event.is_set():
+        # Verificamos si el proceso local (si aplica) sigue vivo
+        if camera_service_manager is not None and camera_service_manager.owns_service:
+            if not camera_service_manager.is_running:
+                if status_cb:
+                    status_cb("[Camara] El servicio local se ha detenido inesperadamente.")
+                return False
+
+        # Intentamos conectar al puerto TCP para ver si ya escucha
+        if _is_port_open(target_host, CAMERA_SERVER_PORT):
             return True
-        await asyncio.sleep(0.2)
-        waited += 0.2
-    return camera_service_manager is not None and camera_service_manager.is_running
+
+        await asyncio.sleep(0.5)
+        waited += 0.5
+
+    return False
 
 
 async def _camera_receiver_task(stop_event, status_cb=None):
@@ -767,8 +806,8 @@ async def _camera_receiver_task(stop_event, status_cb=None):
         print(msg)
 
     # Reutilizamos el helper de espera para evitar iniciar la negociacion demasiado pronto.
-    if _es_local():
-        await _wait_camera_service(stop_event, status_cb=_status)
+    # Ahora esperamos siempre si estamos actuando de servidor local (local o global con ip local).
+    await _wait_camera_service(stop_event, status_cb=_status)
 
     for intento in range(1, CAMERA_CONNECT_RETRIES + 1):
         signaling = TcpSocketSignaling(host, CAMERA_SERVER_PORT)
@@ -1766,12 +1805,14 @@ def cmd_start_camera():
     # Precarga del modelo fuera del loop de video para evitar bloqueos al seleccionar objetos.
     object_detector.preload_async()
 
-    # En modo local, el dashboard levanta el servicio de camara automaticamente.
-    if _es_local() and camera_service_manager is not None and not camera_service_manager.is_running:
-        ok = camera_service_manager.start()
-        if not ok:
-            messagebox.showerror("Camara", "No se pudo iniciar CameraService integrado.")
-            return
+    # En modo local O si estamos en global apuntando a localhost,
+    # el dashboard es responsable de levantar el servicio de camara si no esta activo.
+    if camera_service_manager is not None and not camera_service_manager.is_running:
+        if _es_local() or _camera_host() in ("127.0.0.1", "localhost", "0.0.0.0"):
+            ok = camera_service_manager.start()
+            if not ok:
+                messagebox.showerror("Camara", "No se pudo iniciar CameraService integrado.")
+                return
 
     camera_client.start()
 
@@ -1844,8 +1885,14 @@ def cmd_iniciar(modo_var, iniciarBtn, modoFrame):
         auto_ok = autopilot_service_manager.start(show_console=True)
 
         controller = GlobalController(on_mqtt_message, on_mqtt_connect)
-        if camera_service_manager is not None and camera_service_manager.is_running:
-            camera_service_manager.stop()
+
+        # En vez de detener la camara, la dejamos disponible si la IP es local.
+        # if camera_service_manager is not None and camera_service_manager.is_running:
+        #    camera_service_manager.stop()
+        # Aseguramos que exista el manager para poder iniciarlo luego en cmd_start_camera si es necesario
+        if camera_service_manager is None:
+            camera_service_manager = CameraServiceManager(_status_camara)
+
         modoLbl["text"] = "Modo: GLOBAL (via MQTT / AutopilotService)"
         modoLbl["fg"] = "darkblue"
 
@@ -2084,14 +2131,6 @@ def crear_ventana():
     tk.Label(telemetryFrame, text="Estado").grid(row=0, column=2, padx=4, pady=2)
     tk.Label(telemetryFrame, text="Velocidad").grid(row=0, column=3, padx=4, pady=2)
 
-    altShowLbl = tk.Label(telemetryFrame, text="--", fg="blue")
-    altShowLbl.grid(row=1, column=0, padx=4, pady=2)
-    headingShowLbl = tk.Label(telemetryFrame, text="--", fg="blue")
-    headingShowLbl.grid(row=1, column=1, padx=4, pady=2)
-    stateShowLbl = tk.Label(telemetryFrame, text="--", fg="blue")
-    stateShowLbl.grid(row=1, column=2, padx=4, pady=2)
-    speedShowLbl = tk.Label(telemetryFrame, text="--", fg="blue")
-    speedShowLbl.grid(row=1, column=3, padx=4, pady=2)
 
     tk.Label(telemetryFrame, text="Modo vuelo").grid(row=2, column=0, padx=4, pady=2)
     tk.Label(telemetryFrame, text="Latitud").grid(row=2, column=1, padx=4, pady=2)

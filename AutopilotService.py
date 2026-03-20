@@ -17,6 +17,12 @@ def create_publish_event(client, origin):
         client.publish(topic)
     return publish_event
 
+def create_publish_telemetry(client, origin):
+    def publish_telemetry(telemetry_info):
+        topic = f"autopilotService04/{origin}/telemetryInfo"
+        client.publish(topic, json.dumps(telemetry_info))
+    return publish_telemetry
+
 
 def publish_event_payload(event, payload):
     """Publica un evento con payload de texto para diagnostico en el dashboard."""
@@ -131,7 +137,7 @@ def on_message(cli, userdata, message):
                         publish_event('armed')
                 except Exception as e:
                     print(f'ERROR en arm: {e}')
-            threading.Thread(target=do_arm_only, daemon=True).start()
+            threading.Thread(target=do_arm, daemon=True).start()
         elif dron.state == 'armed':
             publish_event('armed')
         else:
@@ -207,7 +213,7 @@ def on_message(cli, userdata, message):
         print(f'Comando go recibido, dron.state={dron.state}')
         if dron.state == 'flying':
             direction = payload_str
-            threading.Thread(target=dron.go, args=[direction], daemon=True).start()
+            dron.go(direction)
         else:
             print(f'No se puede mover: dron.state={dron.state}')
 
@@ -227,13 +233,8 @@ def on_message(cli, userdata, message):
                 # usamos la altitud actual del dron
                 alt = dron.alt if dron.alt is not None else 5
 
-                # en hilo para no bloquear MQTT
-                threading.Thread(
-                    target=dron.goto,
-                    args=[lat, lon, alt],
-                    kwargs={"blocking": False},
-                    daemon=True
-                ).start()
+                # llamada no bloqueante directa
+                dron.goto(lat, lon, alt, blocking=False)
 
             except Exception as e:
                 print(f'ERROR en goTo: {e}')
@@ -266,15 +267,16 @@ def on_message(cli, userdata, message):
         if dron.state == 'flying':
             try:
                 heading = int(payload_str)
-                threading.Thread(target=dron.changeHeading, args=[heading], daemon=True).start()
+                dron.changeHeading(heading, blocking=False)
             except:
                 pass
+
 
     if command == 'changeNavSpeed':
         if dron.state == 'flying':
             try:
                 speed = float(payload_str)
-                threading.Thread(target=dron.changeNavSpeed, args=[speed], daemon=True).start()
+                dron.changeNavSpeed(speed)
             except:
                 pass
 
@@ -349,20 +351,20 @@ def on_message(cli, userdata, message):
             else:
                 publish_event('gotoStarted')
 
-                def do_goto_with_speed():
-                    try:
-                        if speed is not None:
-                            dron.changeNavSpeed(speed)
-                        if alt is None:
-                            # Sin altitud, dronLink usa la altitud relativa actual.
-                            dron.goto(lat, lon, blocking=False, callback=publish_event, params='gotoReached')
-                        else:
-                            dron.goto(lat, lon, alt, blocking=False, callback=publish_event, params='gotoReached')
-                    except Exception as e:
-                        print(f'ERROR en goto: {e}')
-                        publish_event_payload('gotoError', f'ejecucion_fallida: {e}')
+                try:
+                    if speed is not None:
+                        # Usamos setParams directamente para evitar que changeNavSpeed reinicie
+                        # el hilo de navegación (go), ya que goto lo detendrá inmediatamente.
+                        dron.setParams([{'ID': "WPNAV_SPEED", 'Value': speed*100}])
 
-                threading.Thread(target=do_goto_with_speed, daemon=True).start()
+                    if alt is None:
+                        # Sin altitud, dronLink usa la altitud relativa actual.
+                        dron.goto(lat, lon, blocking=False, callback=publish_event, params='gotoReached')
+                    else:
+                        dron.goto(lat, lon, alt, blocking=False, callback=publish_event, params='gotoReached')
+                except Exception as e:
+                    print(f'ERROR en goto: {e}')
+                    publish_event_payload('gotoError', f'ejecucion_fallida: {e}')
         else:
             reason = f'estado_invalido:{dron.state}'
             print(f'No se puede hacer goto: dron.state={dron.state} (se esperaba "flying")')

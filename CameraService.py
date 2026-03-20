@@ -35,9 +35,19 @@ class OpenCVCameraTrack(VideoStreamTrack):
 
     def __init__(self, camera_id):
         super().__init__()
-        self._cap = cv2.VideoCapture(camera_id)
+        # En Windows, usar DSHOW suele ser mas rapido y compatible para webcams
+        if platform.system() == "Windows":
+            self._cap = cv2.VideoCapture(camera_id, cv2.CAP_DSHOW)
+        else:
+            self._cap = cv2.VideoCapture(camera_id)
+
+        if not self._cap.isOpened():
+            # Intentar fallback sin backend especifico si falla
+            self._cap = cv2.VideoCapture(camera_id)
+
         if not self._cap.isOpened():
             raise RuntimeError(f"No se pudo abrir la camara {camera_id}")
+
         self._frame_period_s = 1.0 / float(TARGET_FPS)
         self._last_frame_ts = 0.0
 
