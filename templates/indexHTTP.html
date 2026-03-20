@@ -51,6 +51,21 @@
         <!-- Botón Conectar -->
         <button id="botonConectar" class="boton" onclick="conectarDron()">Conectar con Dron</button>
 
+        <!-- Control de Voz -->
+        <div style="margin-top: 15px; padding: 15px; background-color: #333; border-radius: 5px; text-align: center;">
+            <button id="botonVoz" class="boton" style="background-color: #FF6B6B;" onclick="toggleVoiceControl()">🎤 Activar Control de Voz</button>
+
+            <p id="voiceStatus" style="color: #FFD700; font-size: 16px; margin-top: 10px; min-height: 20px;"></p>
+
+            <!-- Visualizador de transcripción -->
+            <div style="background-color: #222; padding: 10px; margin: 10px 0; border-radius: 5px; border: 1px solid #555;">
+                <span style="color: #aaa; font-size: 12px; display:block;">Escuchando:</span>
+                <span id="voiceTranscript" style="color: white; font-size: 18px; font-weight: bold; font-style: italic;">...</span>
+            </div>
+
+            <p id="voiceCommand" style="color: #4CAF50; font-size: 14px; margin-top: 5px; min-height: 20px; font-weight: bold;"></p>
+        </div>
+
         <!-- Altura + despegar -->
         <input type="number" id="altura" class="form-control mb-2" placeholder="Altura en metros">
         <button id="botonDespegar" class="boton" onclick="despegarDron()">Despegar</button>
@@ -101,8 +116,216 @@
 <script>
 
 // ------------------------------------
-// FUNCIONES HTTP CLIENT → SERVIDOR
+// RECONOCIMIENTO DE VOZ
 // ------------------------------------
+
+const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+let recognition = null;
+let voiceControlActive = false;
+let isStopping = false; // Flag para evitar bucle infinito
+
+if (SpeechRecognition) {
+    recognition = new SpeechRecognition();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.lang = "es-ES";  // Español
+
+    recognition.onstart = () => {
+        updateVoiceStatus("🎤 Escuchando...");
+        document.getElementById("botonVoz").style.backgroundColor = "#4CAF50";
+        isStopping = false;
+    };
+
+    recognition.onend = () => {
+        if (voiceControlActive && !isStopping) {
+            updateVoiceStatus("⚠️ Se detuvo. Reiniciando...");
+            setTimeout(() => {
+                if (voiceControlActive) recognition.start();
+            }, 500);
+        }
+    };
+
+    recognition.onresult = (event) => {
+        let transcript = "";
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+            transcript += event.results[i][0].transcript;
+        }
+
+        transcript = transcript.toLowerCase().trim();
+
+        // Actualizar visualizador
+        const tObj = document.getElementById("voiceTranscript");
+        if(tObj) tObj.innerText = transcript;
+
+        if (event.results[event.results.length - 1].isFinal) {
+            updateVoiceStatus("✅ Procesando...");
+            processVoiceCommand(transcript);
+        } else {
+            updateVoiceStatus("🎤 Escuchando...");
+        }
+    };
+
+    recognition.onerror = (event) => {
+        updateVoiceStatus(`❌ Error: ${event.error}`);
+    };
+}
+
+function toggleVoiceControl() {
+    if (!recognition) {
+        alert("Tu navegador no soporta reconocimiento de voz");
+        return;
+    }
+
+    voiceControlActive = !voiceControlActive;
+
+    if (voiceControlActive) {
+        isStopping = false;
+        recognition.start();
+        updateVoiceStatus("🎤 Escuchando...");
+        document.getElementById("botonVoz").textContent = "🎤 Detener Voz";
+    } else {
+        isStopping = true;
+        recognition.stop();
+        updateVoiceStatus("🛑 Detenido");
+        updateVoiceCommand("");
+        document.getElementById("voiceTranscript").innerText = "...";
+        document.getElementById("botonVoz").textContent = "🎤 Activar Control de Voz";
+        document.getElementById("botonVoz").style.backgroundColor = "#FF6B6B";
+    }
+}
+
+function updateVoiceStatus(message) {
+    document.getElementById("voiceStatus").innerText = message;
+}
+
+function updateVoiceCommand(message) {
+    document.getElementById("voiceCommand").innerText = message;
+}
+
+function processVoiceCommand(transcript) {
+    console.log("Procesando comando de voz:", transcript);
+
+    // Mapeo de comandos en español a funciones
+    const comandos = {
+        // Despegar
+        "despega": () => {
+            const altura = document.getElementById('altura').value || "10";
+            despegarDron();
+            updateVoiceCommand(`✈️ Despegando a ${altura}m`);
+        },
+        "despegar": () => {
+            const altura = document.getElementById('altura').value || "10";
+            despegarDron();
+            updateVoiceCommand(`✈️ Despegando a ${altura}m`);
+        },
+
+        // Aterrizar
+        "aterriza": () => {
+            aterrizarDron();
+            updateVoiceCommand("🛬 Aterrizando...");
+        },
+        "aterrizar": () => {
+            aterrizarDron();
+            updateVoiceCommand("🛬 Aterrizando...");
+        },
+        "tierra": () => {
+            aterrizarDron();
+            updateVoiceCommand("🛬 Aterrizando...");
+        },
+
+        // RTL (Regresar a casa)
+        "regresa": () => {
+            rtlDron();
+            updateVoiceCommand("🏠 Regresando a casa...");
+        },
+        "vuelve": () => {
+            rtlDron();
+            updateVoiceCommand("🏠 Regresando a casa...");
+        },
+        "rtl": () => {
+            rtlDron();
+            updateVoiceCommand("🏠 RTL activado...");
+        },
+
+        // Movimientos - Norte
+        "norte": () => {
+            moverDron("North");
+            updateVoiceCommand("⬆️ Volando hacia el Norte");
+        },
+        "adelante": () => {
+            moverDron("North");
+            updateVoiceCommand("⬆️ Volando hacia adelante");
+        },
+        "arriba": () => {
+            moverDron("North");
+            updateVoiceCommand("⬆️ Volando hacia arriba");
+        },
+
+        // Movimientos - Sur
+        "sur": () => {
+            moverDron("South");
+            updateVoiceCommand("⬇️ Volando hacia el Sur");
+        },
+        "atrás": () => {
+            moverDron("South");
+            updateVoiceCommand("⬇️ Volando hacia atrás");
+        },
+        "atras": () => {
+            moverDron("South");
+            updateVoiceCommand("⬇️ Volando hacia atrás");
+        },
+
+        // Movimientos - Este
+        "este": () => {
+            moverDron("East");
+            updateVoiceCommand("➡️ Volando hacia el Este");
+        },
+        "derecha": () => {
+            moverDron("East");
+            updateVoiceCommand("➡️ Volando hacia la derecha");
+        },
+
+        // Movimientos - Oeste
+        "oeste": () => {
+            moverDron("West");
+            updateVoiceCommand("⬅️ Volando hacia el Oeste");
+        },
+        "izquierda": () => {
+            moverDron("West");
+            updateVoiceCommand("⬅️ Volando hacia la izquierda");
+        },
+
+        // Detener
+        "para": () => {
+            moverDron("Stop");
+            updateVoiceCommand("⏹️ Deteniendo...");
+        },
+        "parar": () => {
+            moverDron("Stop");
+            updateVoiceCommand("⏹️ Deteniendo...");
+        },
+        "detente": () => {
+            moverDron("Stop");
+            updateVoiceCommand("⏹️ Deteniendo...");
+        },
+        "stop": () => {
+            moverDron("Stop");
+            updateVoiceCommand("⏹️ Stop!");
+        },
+    };
+
+    // Buscar coincidencias en el transcript
+    for (const [palabra, accion] of Object.entries(comandos)) {
+        if (transcript.includes(palabra)) {
+            accion();
+            return;
+        }
+    }
+
+    updateVoiceCommand("❓ Comando no reconocido");
+}
+
+
 
 function post(url, body = {}) {
     return fetch(url, {

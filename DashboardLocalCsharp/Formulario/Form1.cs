@@ -88,10 +88,17 @@ namespace Formulario
 
         private void but_connect_Click(object sender, EventArgs e)
         {
-            //dron.Conectar("simulacion");
-            dron.Conectar("produccion","com4");
-            but_connect.BackColor = Color.Green;
-            but_connect.ForeColor = Color.White;
+            try
+            {
+                dron.Conectar("simulacion");
+                //dron.Conectar("produccion", "com14");
+                but_connect.BackColor = Color.Green;
+                but_connect.ForeColor = Color.White;
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("No se pudo conectar con el dron. Verifique que el simulador esté activo y que no haya otra estación conectada.\n\nDetalle: " + ex.Message, "Error de Conexión", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
         }
 
 

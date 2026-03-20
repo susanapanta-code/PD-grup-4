@@ -34,8 +34,8 @@ def on_connect(client, userdata, flags, reason_code, properties):
     if reason_code == 0:
         print(f"[MQTT] Conectado al broker OK")
         # Suscribirse a todo lo que venga del AutopilotService dirigido a nosotros
-        client.subscribe(f"autopilotServiceDemo/{ORIGIN}/#")
-        print(f"[MQTT] Suscrito a autopilotServiceDemo/{ORIGIN}/#")
+        client.subscribe(f"autopilotService04/{ORIGIN}/#")
+        print(f"[MQTT] Suscrito a autopilotService04/{ORIGIN}/#")
     else:
         print(f"[MQTT] Error de conexión, código={reason_code}")
 
@@ -45,7 +45,7 @@ def on_message(client, userdata, message):
     topic = message.topic
     payload = message.payload.decode("utf-8")
 
-    # topic tiene formato: autopilotServiceDemo/mobileFlask/<evento>
+    # topic tiene formato: autopilotService04/mobileFlask/<evento>
     parts = topic.split("/")
     if len(parts) < 3:
         return
@@ -94,10 +94,12 @@ mqtt_client = mqtt.Client(
 mqtt_client.on_connect = on_connect
 mqtt_client.on_message = on_message
 
-broker_address = "broker.hivemq.com"
-broker_port = 8000
+broker_address = "dronseetac.upc.edu"
+broker_port = 8000  # WebSockets
 
-print("[MQTT] Conectando al broker HiveMQ...")
+mqtt_client.username_pw_set("dronsEETAC", "mimara1456.")
+
+print(f"[MQTT] Conectando al broker {broker_address}:{broker_port}...")
 mqtt_client.connect(broker_address, broker_port)
 mqtt_client.loop_start()  # hilo de fondo para MQTT
 
@@ -106,7 +108,7 @@ mqtt_client.loop_start()  # hilo de fondo para MQTT
 
 def publish(command, payload=""):
     """Publica un comando al AutopilotService vía MQTT."""
-    topic = f"{ORIGIN}/autopilotServiceDemo/{command}"
+    topic = f"{ORIGIN}/autopilotService04/{command}"
     mqtt_client.publish(topic, payload)
     print(f"[HTTP→MQTT] Publicado {topic}  payload={payload}")
 

@@ -8,8 +8,13 @@ import math
 from dronLink.Dron import Dron
 
 # ---- Configuración de conexión ----
+# Para conectar con el simulador SITL:
 connection_str = 'tcp:127.0.0.1:5763'
 baudios = 115200
+
+# Para conectar con la radio de telemetría (descomentar y ajustar puerto):
+# connection_str = 'COM14'
+# baudios = 57600
 
 # ---- Colores del sistema ----
 COLOR_DISPONIBLE = "dark orange"

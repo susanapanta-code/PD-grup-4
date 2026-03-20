@@ -1,18 +1,28 @@
 ###########  INSTALAR #########################
 # opencv-python
 # aiortc
+# aiohttp
+# aiohttp_cors
 ###############################################
 
-
+import argparse
 import asyncio
 import json
+import logging
+import os
+import platform
+import ssl
+
+from aiohttp import web
+import aiohttp_cors
+from aiortc import RTCPeerConnection, RTCSessionDescription, VideoStreamTrack
+from aiortc.contrib.media import MediaPlayer, MediaRelay
+from av import VideoFrame
+import cv2
+import fractions
 import time
 
-import cv2
-from aiortc import RTCPeerConnection, RTCSessionDescription, VideoStreamTrack
-from aiortc.contrib.media import MediaRelay
-from av import VideoFrame
-
+ROOT = os.path.dirname(__file__)
 
 HOST = "0.0.0.0"
 PORT = 9999
