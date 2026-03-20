@@ -401,6 +401,37 @@ namespace Formulario
             pictureBoxVideo.Visible = true;
         }
 
+        private void EnviarObjeto(int objectID)
+        {
+            try
+            {
+                using (TcpClient client = new TcpClient("127.0.0.1", 6000))
+                {
+                    byte[] data = Encoding.UTF8.GetBytes(objectID.ToString());
+                    client.GetStream().Write(data, 0, data.Length);
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Error enviando objeto: " + ex.Message);
+            }
+        }
+
+        private void bananaBtn_Click(object sender, EventArgs e)
+        {
+            EnviarObjeto(46);
+        }
+
+        private void telefonoBtn_Click(object sender, EventArgs e)
+        {
+            EnviarObjeto(67);
+        }
+
+        private void relojBtn_Click(object sender, EventArgs e)
+        {
+            EnviarObjeto(74);
+        }
+
         private async void Form1_Load(object sender, EventArgs e)
         {
             await webView21.EnsureCoreWebView2Async(null);
@@ -416,5 +447,6 @@ namespace Formulario
 
             await StartVideoAsync();
         }
+
     }
 }

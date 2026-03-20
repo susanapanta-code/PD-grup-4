@@ -35,6 +35,7 @@
             this.velocidadLbl = new System.Windows.Forms.Label();
             this.velocidadTrackBar = new System.Windows.Forms.TrackBar();
             this.groupBox4 = new System.Windows.Forms.GroupBox();
+            this.videoBtn = new System.Windows.Forms.Button();
             this.limpiarMapaBtn = new System.Windows.Forms.Button();
             this.label10 = new System.Windows.Forms.Label();
             this.flightModeLbl = new System.Windows.Forms.Label();
@@ -71,7 +72,11 @@
             this.menuStrip1 = new System.Windows.Forms.MenuStrip();
             this.webView21 = new Microsoft.Web.WebView2.WinForms.WebView2();
             this.pictureBoxVideo = new System.Windows.Forms.PictureBox();
-            this.videoBtn = new System.Windows.Forms.Button();
+            this.groupBox3 = new System.Windows.Forms.GroupBox();
+            this.label8 = new System.Windows.Forms.Label();
+            this.bananaBtn = new System.Windows.Forms.Button();
+            this.telefonoBtn = new System.Windows.Forms.Button();
+            this.relojBtn = new System.Windows.Forms.Button();
             ((System.ComponentModel.ISupportInitialize)(this.headingTrackBar)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.velocidadTrackBar)).BeginInit();
             this.groupBox4.SuspendLayout();
@@ -80,6 +85,7 @@
             ((System.ComponentModel.ISupportInitialize)(this.metrosDespegue_trackBar)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.webView21)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.pictureBoxVideo)).BeginInit();
+            this.groupBox3.SuspendLayout();
             this.SuspendLayout();
             // 
             // label4
@@ -176,6 +182,17 @@
             this.groupBox4.TabIndex = 30;
             this.groupBox4.TabStop = false;
             this.groupBox4.Text = "Telemetría";
+            // 
+            // videoBtn
+            // 
+            this.videoBtn.Location = new System.Drawing.Point(188, 270);
+            this.videoBtn.Margin = new System.Windows.Forms.Padding(4);
+            this.videoBtn.Name = "videoBtn";
+            this.videoBtn.Size = new System.Drawing.Size(156, 32);
+            this.videoBtn.TabIndex = 16;
+            this.videoBtn.Text = "Mostrar Video";
+            this.videoBtn.UseVisualStyleBackColor = true;
+            this.videoBtn.Click += new System.EventHandler(this.videoBtn_Click);
             // 
             // limpiarMapaBtn
             // 
@@ -591,22 +608,73 @@
             this.pictureBoxVideo.TabIndex = 41;
             this.pictureBoxVideo.TabStop = false;
             // 
-            // videoBtn
+            // groupBox3
             // 
-            this.videoBtn.Location = new System.Drawing.Point(188, 270);
-            this.videoBtn.Margin = new System.Windows.Forms.Padding(4);
-            this.videoBtn.Name = "videoBtn";
-            this.videoBtn.Size = new System.Drawing.Size(156, 32);
-            this.videoBtn.TabIndex = 16;
-            this.videoBtn.Text = "Mostrar Video";
-            this.videoBtn.UseVisualStyleBackColor = true;
-            this.videoBtn.Click += new System.EventHandler(this.videoBtn_Click);
+            this.groupBox3.Controls.Add(this.relojBtn);
+            this.groupBox3.Controls.Add(this.telefonoBtn);
+            this.groupBox3.Controls.Add(this.bananaBtn);
+            this.groupBox3.Controls.Add(this.label8);
+            this.groupBox3.Font = new System.Drawing.Font("Microsoft Sans Serif", 15.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.groupBox3.Location = new System.Drawing.Point(20, 579);
+            this.groupBox3.Margin = new System.Windows.Forms.Padding(4);
+            this.groupBox3.Name = "groupBox3";
+            this.groupBox3.Padding = new System.Windows.Forms.Padding(4);
+            this.groupBox3.Size = new System.Drawing.Size(295, 208);
+            this.groupBox3.TabIndex = 33;
+            this.groupBox3.TabStop = false;
+            this.groupBox3.Text = "Detección";
+            // 
+            // label8
+            // 
+            this.label8.AutoSize = true;
+            this.label8.Location = new System.Drawing.Point(153, 60);
+            this.label8.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
+            this.label8.Name = "label8";
+            this.label8.Size = new System.Drawing.Size(0, 31);
+            this.label8.TabIndex = 18;
+            // 
+            // bananaBtn
+            // 
+            this.bananaBtn.AutoSize = true;
+            this.bananaBtn.Location = new System.Drawing.Point(19, 50);
+            this.bananaBtn.Margin = new System.Windows.Forms.Padding(4);
+            this.bananaBtn.Name = "bananaBtn";
+            this.bananaBtn.Size = new System.Drawing.Size(134, 41);
+            this.bananaBtn.TabIndex = 17;
+            this.bananaBtn.Text = "Banana";
+            this.bananaBtn.UseVisualStyleBackColor = true;
+            this.bananaBtn.Click += new System.EventHandler(this.bananaBtn_Click);
+            // 
+            // telefonoBtn
+            // 
+            this.telefonoBtn.AutoSize = true;
+            this.telefonoBtn.Location = new System.Drawing.Point(19, 104);
+            this.telefonoBtn.Margin = new System.Windows.Forms.Padding(4);
+            this.telefonoBtn.Name = "telefonoBtn";
+            this.telefonoBtn.Size = new System.Drawing.Size(134, 41);
+            this.telefonoBtn.TabIndex = 19;
+            this.telefonoBtn.Text = "Teléfono";
+            this.telefonoBtn.UseVisualStyleBackColor = true;
+            this.telefonoBtn.Click += new System.EventHandler(this.telefonoBtn_Click);
+            // 
+            // relojBtn
+            // 
+            this.relojBtn.AutoSize = true;
+            this.relojBtn.Location = new System.Drawing.Point(19, 159);
+            this.relojBtn.Margin = new System.Windows.Forms.Padding(4);
+            this.relojBtn.Name = "relojBtn";
+            this.relojBtn.Size = new System.Drawing.Size(134, 41);
+            this.relojBtn.TabIndex = 20;
+            this.relojBtn.Text = "Reloj";
+            this.relojBtn.UseVisualStyleBackColor = true;
+            this.relojBtn.Click += new System.EventHandler(this.relojBtn_Click);
             // 
             // Form1
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 16F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(1924, 632);
+            this.ClientSize = new System.Drawing.Size(1924, 812);
+            this.Controls.Add(this.groupBox3);
             this.Controls.Add(this.pictureBoxVideo);
             this.Controls.Add(this.webView21);
             this.Controls.Add(this.label4);
@@ -634,6 +702,8 @@
             ((System.ComponentModel.ISupportInitialize)(this.metrosDespegue_trackBar)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.webView21)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.pictureBoxVideo)).EndInit();
+            this.groupBox3.ResumeLayout(false);
+            this.groupBox3.PerformLayout();
             this.ResumeLayout(false);
             this.PerformLayout();
 
@@ -685,6 +755,11 @@
         private System.Windows.Forms.Button limpiarMapaBtn;
         private System.Windows.Forms.PictureBox pictureBoxVideo;
         private System.Windows.Forms.Button videoBtn;
+        private System.Windows.Forms.GroupBox groupBox3;
+        private System.Windows.Forms.Button bananaBtn;
+        private System.Windows.Forms.Label label8;
+        private System.Windows.Forms.Button telefonoBtn;
+        private System.Windows.Forms.Button relojBtn;
     }
 }
 
