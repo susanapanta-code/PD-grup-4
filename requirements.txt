@@ -1,0 +1,8 @@
+aiortc
+av
+opencv-python
+paho-mqtt
+pymavlink
+tkintermapview
+torch
+

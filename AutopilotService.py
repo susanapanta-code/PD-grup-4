@@ -6,6 +6,7 @@ import paho.mqtt.client as mqtt
 from paho.mqtt.enums import CallbackAPIVersion
 import json
 import threading
+from pymavlink import mavutil
 from dronLink.Dron import Dron
 
 # esta función sirve para publicar los eventos resultantes de las acciones solicitadas
@@ -14,6 +15,14 @@ def publish_event (event):
     topic = sending_topic + '/'+event
     print(f"Publicando evento: {topic}")
     client.publish(topic)
+
+
+def publish_event_payload(event, payload):
+    """Publica un evento con payload de texto para diagnostico en el dashboard."""
+    global sending_topic, client
+    topic = sending_topic + '/' + event
+    print(f"Publicando evento con payload: {topic} -> {payload}")
+    client.publish(topic, str(payload))
 
 
 def publish_telemetry_info (telemetry_info):
@@ -54,18 +63,77 @@ def on_message(cli, userdata, message):
                 dron.send_telemetry_info(publish_telemetry_info)
                 print('Telemetría reiniciada')
         else:
-            connection_string = 'COM14'
-            baud = 57600
+            connection_string = 'tcp:127.0.0.1:5763'
+            baud = 115200
             print('Conectando al dron...')
             # Ejecutar en hilo aparte para NO bloquear el loop MQTT
             def do_connect():
-                dron.connect(connection_string, baud, freq=10)
-                print(f'Dron conectado, state={dron.state}')
-                publish_event('connected')
-                # Iniciar telemetría automáticamente al conectar
-                dron.send_telemetry_info(publish_telemetry_info)
-                print('Telemetría iniciada automáticamente')
+                try:
+                    dron.connect(connection_string, baud, freq=10)
+                    print(f'Dron conectado, state={dron.state}')
+                    publish_event('connected')
+                    # Iniciar telemetría automáticamente al conectar
+                    dron.send_telemetry_info(publish_telemetry_info)
+                    print('Telemetría iniciada automáticamente')
+                except Exception as e:
+                    err = str(e)
+                    print(f'ERROR connect: {err}')
+                    publish_event_payload('connect_error', err)
             threading.Thread(target=do_connect, daemon=True).start()
+
+    if command == 'arm':
+        print(f'Comando arm recibido, dron.state={dron.state}')
+        if dron.state == 'connected':
+            def do_arm_only():
+                try:
+                    dron.arm()
+                    print(f'Armado completado, state={dron.state}')
+                    if dron.state == 'armed':
+                        publish_event('armed')
+                except Exception as e:
+                    print(f'ERROR en arm: {e}')
+            threading.Thread(target=do_arm_only, daemon=True).start()
+        elif dron.state == 'armed':
+            publish_event('armed')
+        else:
+            print(f'No se puede armar: dron.state={dron.state} (se esperaba "connected")')
+
+    if command == 'disarm':
+        print(f'Comando disarm recibido, dron.state={dron.state}')
+        if dron.state == 'armed' and getattr(dron, 'vehicle', None):
+            try:
+                dron.vehicle.mav.command_long_send(
+                    dron.vehicle.target_system,
+                    dron.vehicle.target_component,
+                    mavutil.mavlink.MAV_CMD_COMPONENT_ARM_DISARM,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                )
+                dron.state = 'connected'
+                publish_event('disarmed')
+            except Exception as e:
+                print(f'ERROR en disarm: {e}')
+        elif dron.state == 'connected':
+            publish_event('disarmed')
+        else:
+            print(f'No se puede desarmar: dron.state={dron.state} (se esperaba "armed")')
+
+    if command == 'takeOff':
+        print(f'Comando takeOff recibido, dron.state={dron.state}')
+        if dron.state == 'armed':
+            try:
+                alt = float(message.payload.decode("utf-8"))
+            except:
+                alt = 5
+            dron.takeOff(alt, blocking=False, callback=publish_event, params='flying')
+        else:
+            print(f'No se puede despegar: dron.state={dron.state} (se esperaba "armed")')
 
     if command == 'arm_takeOff':
         print(f'Comando arm_takeOff recibido, dron.state={dron.state}')
@@ -141,6 +209,96 @@ def on_message(cli, userdata, message):
             # changeNavSpeed llama a setParams (bloqueante) y luego a go()
             # DEBE ejecutarse en hilo aparte para no bloquear el loop MQTT
             threading.Thread(target=dron.changeNavSpeed, args=[speed], daemon=True).start()
+
+    if command == 'rotate':
+        print(f'Comando rotate recibido, dron.state={dron.state}')
+        if dron.state == 'flying':
+            payload = message.payload.decode("utf-8") if message.payload else "cw:90"
+            direction = 'cw'
+            offset = 90
+            try:
+                if ':' in payload:
+                    direction_part, offset_part = payload.split(':', 1)
+                    direction = direction_part.strip().lower() or 'cw'
+                    offset = int(offset_part.strip())
+                else:
+                    offset = int(payload)
+            except Exception:
+                direction = 'cw'
+                offset = 90
+
+            try:
+                dron.rotate(offset, direction=direction, blocking=False, callback=publish_event, params='rotated')
+            except Exception as e:
+                print(f'ERROR en rotate: {e}')
+        else:
+            print(f'No se puede rotar: dron.state={dron.state} (se esperaba "flying")')
+
+    if command == 'changeAltitude':
+        print(f'Comando changeAltitude recibido, dron.state={dron.state}')
+        if dron.state == 'flying':
+            try:
+                altitude = int(float(message.payload.decode("utf-8")))
+            except Exception:
+                altitude = None
+
+            if altitude is None:
+                print('No se puede cambiar altitud: payload invalido')
+            else:
+                try:
+                    dron.change_altitude(altitude, blocking=False, callback=publish_event, params='altitudeChanged')
+                except Exception as e:
+                    print(f'ERROR en changeAltitude: {e}')
+        else:
+            print(f'No se puede cambiar altitud: dron.state={dron.state} (se esperaba "flying")')
+
+    if command == 'goto':
+        print(f'Comando goto recibido, dron.state={dron.state}')
+        if dron.state == 'flying':
+            lat = lon = None
+            alt = None
+            speed = None
+            try:
+                raw = message.payload.decode("utf-8") if message.payload else ""
+                data = json.loads(raw)
+                lat = float(data.get('lat'))
+                lon = float(data.get('lon'))
+                # Altitud opcional para compatibilidad con clientes antiguos.
+                raw_alt = data.get('alt')
+                if raw_alt is not None:
+                    alt = float(raw_alt)
+                # Velocidad opcional para fijar WPNAV_SPEED antes de iniciar goto.
+                raw_speed = data.get('speed')
+                if raw_speed is not None:
+                    speed = float(raw_speed)
+            except Exception as e:
+                print(f'Payload goto invalido: {e}')
+                publish_event_payload('gotoError', f'payload_invalido: {e}')
+
+            if lat is None or lon is None:
+                print('No se puede ejecutar goto: faltan lat/lon')
+                publish_event_payload('gotoError', 'faltan_lat_lon')
+            else:
+                publish_event('gotoStarted')
+
+                def do_goto_with_speed():
+                    try:
+                        if speed is not None:
+                            dron.changeNavSpeed(speed)
+                        if alt is None:
+                            # Sin altitud, dronLink usa la altitud relativa actual.
+                            dron.goto(lat, lon, blocking=False, callback=publish_event, params='gotoReached')
+                        else:
+                            dron.goto(lat, lon, alt, blocking=False, callback=publish_event, params='gotoReached')
+                    except Exception as e:
+                        print(f'ERROR en goto: {e}')
+                        publish_event_payload('gotoError', f'ejecucion_fallida: {e}')
+
+                threading.Thread(target=do_goto_with_speed, daemon=True).start()
+        else:
+            reason = f'estado_invalido:{dron.state}'
+            print(f'No se puede hacer goto: dron.state={dron.state} (se esperaba "flying")')
+            publish_event_payload('gotoError', reason)
 
 
 def on_connect(client, userdata, flags, reason_code, properties):

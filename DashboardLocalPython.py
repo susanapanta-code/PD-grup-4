@@ -8,8 +8,8 @@ import math
 from dronLink.Dron import Dron
 
 # ---- Configuración de conexión ----
-connection_str = 'COM14'
-baudios = 57600
+connection_str = 'tcp:127.0.0.1:5763'
+baudios = 115200
 
 # ---- Colores del sistema ----
 COLOR_DISPONIBLE = "dark orange"

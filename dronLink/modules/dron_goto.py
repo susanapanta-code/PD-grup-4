@@ -13,15 +13,28 @@ def _distanceToDestinationInMeters(self, lat,lon):
     dlong = self.lon - lon
     return math.sqrt((dlat * dlat) + (dlong * dlong)) * 1.113195e5
 
-def _goto (self, lat, lon, alt, callback=None, params = None):
+
+def _resolve_goto_altitude(self, alt):
+    if alt is not None:
+        return float(alt)
+    try:
+        current_alt = float(getattr(self, "alt", 0.0))
+    except (TypeError, ValueError):
+        current_alt = 0.0
+    # Si no tenemos altitud válida aún, usamos un mínimo seguro.
+    return current_alt if current_alt > 0.0 else 5.0
+
+
+def _goto (self, lat, lon, alt=None, callback=None, params = None):
     # detenemos el modo navegación
     self._stopGo()
+    target_alt = _resolve_goto_altitude(self, alt)
     self.vehicle.mav.send(
         mavutil.mavlink.MAVLink_set_position_target_global_int_message(10, self.vehicle.target_system,
                                                                        self.vehicle.target_component,
                                                                        mavutil.mavlink.MAV_FRAME_GLOBAL_RELATIVE_ALT,
                                                                        int(0b110111111000), int(lat * 10 ** 7),
-                                                                       int(lon * 10 ** 7), alt, 0, 0, 0, 0, 0, 0, 0,
+                                                                       int(lon * 10 ** 7), target_alt, 0, 0, 0, 0, 0, 0, 0,
                                                                        0))
 
 
@@ -46,10 +59,9 @@ def _goto (self, lat, lon, alt, callback=None, params = None):
                 callback(self.id, params)
 
 
-def goto(self, lat, lon, alt, blocking=True, callback=None, params = None):
+def goto(self, lat, lon, alt=None, blocking=True, callback=None, params = None):
     if blocking:
         self._goto(lat, lon, alt)
     else:
         gotoThread = threading.Thread(target=self._goto, args=[lat, lon, alt, callback, params])
         gotoThread.start()
-
