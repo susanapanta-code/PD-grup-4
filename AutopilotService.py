@@ -17,6 +17,11 @@ def create_publish_event(client, origin):
         client.publish(topic)
     return publish_event
 
+def create_publish_telemetry(client, origin):
+    def publish_telemetry(telemetry_info):
+        topic = f"autopilotService04/{origin}/telemetryInfo"
+        client.publish(topic, json.dumps(telemetry_info))
+    return publish_telemetry
 
 def publish_event_payload(event, payload):
     """Publica un evento con payload de texto para diagnostico en el dashboard."""
