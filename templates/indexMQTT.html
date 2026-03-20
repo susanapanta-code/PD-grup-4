@@ -53,6 +53,11 @@
         }
         .box:active { background: #666; }
 
+        .disabled-control {
+            pointer-events: none;
+            opacity: 0.4;
+        }
+
         /* Mapa */
         #map { height: 500px; width: 100%; margin-top: 10px; }
 
@@ -85,14 +90,25 @@
             <!-- PESTAÑA 1: CONTROL (Botones) -->
             <div class="tab-pane fade show active p-3" id="control" role="tabpanel" aria-labelledby="control-tab">
 
-                <button id="botonConectar" class="boton" onclick="conectarDron()">Conectar con Dron</button>
+                <div class="row mb-1">
+                    <div class="col-6">
+                        <button id="botonConectar" class="boton" onclick="conectarDron()">🔌 Conectar</button>
+                    </div>
+                    <div class="col-6">
+                        <button id="botonDesconectar" class="boton" style="background-color: #D32F2F;" onclick="desconectarDron()">❌ Desconectar</button>
+                    </div>
+                </div>
+
+                <div class="mb-2">
+                     <button id="botonArmar" class="boton" style="background-color: #FF9800;" onclick="armarDron()">⚙️ Armar Motores</button>
+                </div>
 
                 <div class="row">
                     <div class="col-8">
                         <input type="number" id="altura" class="form-control" placeholder="Altura (m)">
                     </div>
                     <div class="col-4">
-                        <button id="botonDespegar" class="boton mt-0" onclick="despegarDron()">Despegar</button>
+                        <button id="botonDespegar" class="boton mt-0" onclick="despegarDron()">🚀 Despegar</button>
                     </div>
                 </div>
 
@@ -108,12 +124,20 @@
                 <!-- Control de Voz -->
                 <div style="margin-top: 15px; padding: 15px; background-color: #333; border-radius: 5px; text-align: center;">
                     <button id="botonVoz" class="boton" style="background-color: #FF6B6B;" onclick="toggleVoiceControl()">🎤 Activar Control de Voz</button>
+
                     <p id="voiceStatus" style="color: #FFD700; font-size: 14px; margin-top: 10px; min-height: 20px;"></p>
-                    <p id="voiceCommand" style="color: #4CAF50; font-size: 12px; margin-top: 5px; min-height: 20px; font-weight: bold;"></p>
+
+                    <!-- Nuevo: Visualizador de palabras escuchadas -->
+                    <div style="background-color: #222; padding: 10px; margin: 10px 0; border-radius: 5px; min-height: 40px; border: 1px solid #444;">
+                        <span style="color: #888; font-size: 12px; display: block;">Escuchando:</span>
+                        <span id="voiceTranscript" style="color: #fff; font-size: 18px; font-weight: bold;">...</span>
+                    </div>
+
+                    <p id="voiceCommand" style="color: #4CAF50; font-size: 14px; margin-top: 5px; min-height: 20px; font-weight: bold;"></p>
                 </div>
 
                 <!-- Botones Dirección -->
-                <div class="direction">
+                <div id="controlesDireccion" class="direction">
                     <div onclick="moverDron('NorthWest')" class="box">NW</div>
                     <div onclick="moverDron('North')" class="box">N</div>
                     <div onclick="moverDron('NorthEast')" class="box">NE</div>
@@ -126,7 +150,7 @@
                 </div>
 
                 <!-- Velocidad de navegación -->
-                <div class="mb-2 text-center">
+                <div id="controlesVelocidad" class="mb-2 text-center">
                     <label><strong>Velocidad:</strong> <span id="navSpeedValue">1</span> m/s</label>
                     <input type="range" id="navSpeedSlider" class="form-range" min="0" max="20" value="1" step="1"
                         oninput="document.getElementById('navSpeedValue').innerText = this.value; resetBtn('botonNavSpeed');">
@@ -134,7 +158,7 @@
                 </div>
 
                 <!-- Heading -->
-                <div class="mb-2 text-center">
+                <div id="controlesHeading" class="mb-2 text-center">
                     <label><strong>Heading:</strong> <span id="headingValue">0</span>°</label>
                     <input type="range" id="headingSlider" class="form-range" min="0" max="360" value="0" step="1"
                         oninput="document.getElementById('headingValue').innerText = this.value"
@@ -295,11 +319,15 @@
                 }
                 transcript = transcript.toLowerCase().trim();
 
+                // Mostrar transcripción en tiempo real
+                const tObj = document.getElementById("voiceTranscript");
+                if(tObj) tObj.innerText = transcript;
+
                 if (event.results[event.results.length - 1].isFinal) {
-                    updateVoiceCommand(`Comando detectado: "${transcript}"`);
+                    updateVoiceStatus("✅ Procesando...");
                     processVoiceCommand(transcript);
                 } else {
-                    updateVoiceStatus(`Escuchando: "${transcript}"`);
+                    updateVoiceStatus("🎤 Escuchando...");
                 }
             };
 
@@ -338,8 +366,9 @@
             } else {
                 voiceControlActive = false;
                 safeStopRecognition();
-                updateVoiceStatus("");
+                updateVoiceStatus("🛑 Detenido");
                 updateVoiceCommand("");
+                document.getElementById("voiceTranscript").innerText = "...";
                 document.getElementById("botonVoz").textContent = "🎤 Activar Control de Voz";
                 document.getElementById("botonVoz").style.backgroundColor = "#FF6B6B";
             }
@@ -355,6 +384,12 @@
 
         function processVoiceCommand(transcript) {
             const comandos = {
+                "conecta": () => { conectarDron(); updateVoiceCommand("🔌 Conectando..."); },
+                "conectar": () => { conectarDron(); updateVoiceCommand("🔌 Conectando..."); },
+                "desconecta": () => { desconectarDron(); updateVoiceCommand("🔌 Desconectando..."); },
+                "desconectar": () => { desconectarDron(); updateVoiceCommand("🔌 Desconectando..."); },
+                "arma": () => { armarDron(); updateVoiceCommand("⚙️ Armando motores..."); },
+                "armar": () => { armarDron(); updateVoiceCommand("⚙️ Armando motores..."); },
                 "despega": () => { despegarDron(); updateVoiceCommand("✈️ Despegando"); },
                 "despegar": () => { despegarDron(); updateVoiceCommand("✈️ Despegando"); },
                 "aterriza": () => { aterrizarDron(); updateVoiceCommand("🛬 Aterrizando..."); },
@@ -391,10 +426,28 @@
 
         // ================= MQTT LÓGICA =================
 
+        let connectTimeout;
+
         client.on('connect', function () {
-            console.log('Conectado al broker MQTT');
-            client.subscribe('autopilotServiceDemo/mobileFlask/#');
-            initMap(); // Inicializar mapa al conectar (o al cargar página)
+            console.log('✅ Conectado al broker MQTT');
+            client.subscribe('autopilotService04/mobileFlask/#');
+            // resetBtn('botonConectar'); // Todavía no estamos conectados al dron, solo al broker
+
+            // Indicador visual discreto de conexión al broker
+            const title = document.querySelector('h2');
+            if(title) title.innerHTML += ' <span style="font-size:12px; color:green">● Broker OK</span>';
+
+            initMap();
+        });
+
+        client.on('error', function (err) {
+            console.error('❌ Error MQTT:', err);
+            alert("Error de conexión con el Broker MQTT: " + err);
+            resetBtn('botonConectar');
+        });
+
+        client.on('offline', function () {
+            console.warn('⚠️ MQTT Offline / Desconectado');
         });
 
         client.on('message', function (topic, message) {
@@ -416,10 +469,68 @@
 
             // Actualizar botones según estado
             const st = data.state;
-            if (st === "flying") setBtnSuccess('botonDespegar');
-            if (st === "landed") setBtnSuccess('botonAterrizar');
-            if (st === "rtl" || st === "atHome") setBtnSuccess('botonRTL');
-            if (st === "connected") setBtnSuccess('botonConectar');
+
+            if (st === "disconnected") {
+                 resetBtn('botonConectar');
+                 // Si recibimos "disconnected", confirmamos que la desconexión fue exitosa
+                 setBtnSuccess('botonDesconectar');
+
+                 // Limpiar resto de indicadores
+                 resetBtn('botonArmar');
+                 resetBtn('botonDespegar');
+                 resetBtn('botonAterrizar');
+                 resetBtn('botonRTL');
+            } else {
+                // Estamos conectados
+                setBtnSuccess('botonConectar');
+                resetBtn('botonDesconectar');
+
+                // Lógica de Armado
+                if (st === "armed" || st === "flying" || st === "takingOff") {
+                    setBtnSuccess('botonArmar');
+                } else {
+                    resetBtn('botonArmar');
+                }
+
+                // Lógica de Vuelo
+                if (st === "flying" || st === "takingOff") {
+                    setBtnSuccess('botonDespegar');
+                    resetBtn('botonAterrizar');
+                    resetBtn('botonRTL');
+                } else if (st === "landed") {
+                    resetBtn('botonDespegar');
+                    setBtnSuccess('botonAterrizar');
+                    resetBtn('botonRTL');
+                } else if (st === "rtl" || st === "returning" || st === 'atHome') {
+                    // RTL activo
+                    setBtnSuccess('botonRTL');
+                    resetBtn('botonDespegar');
+                    resetBtn('botonAterrizar');
+                } else {
+                    // En suelo, esperando (connected, armed)
+                    resetBtn('botonDespegar');
+                    resetBtn('botonAterrizar');
+                    resetBtn('botonRTL');
+                }
+            }
+
+            // Habilitar controles de movimiento solo en vuelo
+            const isFlying = (st === "flying" || st === "takingOff");
+            const ctrlDir = document.getElementById('controlesDireccion');
+            const ctrlVel = document.getElementById('controlesVelocidad');
+            const ctrlHead = document.getElementById('controlesHeading');
+
+            if (ctrlDir && ctrlVel && ctrlHead) {
+                if (isFlying) {
+                    ctrlDir.classList.remove('disabled-control');
+                    ctrlVel.classList.remove('disabled-control');
+                    ctrlHead.classList.remove('disabled-control');
+                } else {
+                    ctrlDir.classList.add('disabled-control');
+                    ctrlVel.classList.add('disabled-control');
+                    ctrlHead.classList.add('disabled-control');
+                }
+            }
 
             // Actualizar slider heading si no se está usando
             if (data.heading !== undefined && !arrastrando) {
@@ -552,6 +663,19 @@
         function conectarDron() {
             mqttPublish('connect');
             mqttPublish('startTelemetry');
+            setBtnPending('botonConectar');
+        }
+
+        function desconectarDron() {
+            mqttPublish('stopTelemetry');
+            mqttPublish('disconnect');
+            setBtnSuccess('botonDesconectar'); // Verde temporal hasta confirmación
+            resetBtn('botonConectar');         // Resetear conectar
+        }
+
+        function armarDron() {
+            mqttPublish('arm');
+            setBtnPending('botonArmar');
         }
 
         function despegarDron() {
@@ -615,9 +739,9 @@
         }
 
         function mqttPublish(cmd, payload = "") {
-            // Topic destino: mobileFlask/autopilotServiceDemo/<comando>
-            // Topic origen (respuesta): autopilotServiceDemo/mobileFlask/<evento>
-            const topic = `mobileFlask/autopilotServiceDemo/${cmd}`;
+            // Topic destino: mobileFlask/autopilotService04/<comando>
+            // Topic origen (respuesta): autopilotService04/mobileFlask/<evento>
+            const topic = `mobileFlask/autopilotService04/${cmd}`;
             client.publish(topic, payload);
             console.log("CMD:", topic, payload);
         }

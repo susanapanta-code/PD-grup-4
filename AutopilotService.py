@@ -11,14 +11,14 @@ from dronLink.Dron import Dron
 # esta función sirve para generar un publisher específico para un origen
 def create_publish_event(client, origin):
     def publish_event(event):
-        topic = f"autopilotServiceDemo/{origin}/{event}"
+        topic = f"autopilotService04/{origin}/{event}"
         print(f"Publicando evento: {topic}")
         client.publish(topic)
     return publish_event
 
 def create_publish_telemetry(client, origin):
     def publish_telemetry_info(telemetry_info):
-        topic = f"autopilotServiceDemo/{origin}/telemetryInfo"
+        topic = f"autopilotService04/{origin}/telemetryInfo"
         client.publish(topic, json.dumps(telemetry_info))
     return publish_telemetry_info
 
@@ -26,7 +26,7 @@ def create_publish_telemetry(client, origin):
 def on_message(cli, userdata, message):
     global dron
     # el mensaje que se recibe tiene este formato:
-    #    "origen"/autopilotServiceDemo/"command"
+    #    "origen"/autopilotService04/"command"
 
     try:
         topic_str = message.topic
@@ -42,7 +42,7 @@ def on_message(cli, userdata, message):
     command = splited[2] # comando
 
     # IMPORTANTE: Ignorar ecos (mensajes enviados por nosotros mismos)
-    if origin == "autopilotServiceDemo":
+    if origin == "autopilotService04":
         return
 
     print(f"Mensaje recibido: topic={topic_str}, payload={payload_str}, dron.state={dron.state}")
@@ -61,7 +61,8 @@ def on_message(cli, userdata, message):
             #  pero al menos refrescamos la conexión lógica).
             dron.send_telemetry_info(publish_telemetry)
         else:
-            connection_string = 'tcp:127.0.0.1:5762'
+            # Intentar conectar primero al 5763 (instrucciones), respaldo en 5762
+            connection_string = 'tcp:127.0.0.1:5763'
             baud = 115200
             print(f'Conectando al dron en {connection_string}...')
 
@@ -73,13 +74,62 @@ def on_message(cli, userdata, message):
                     dron.send_telemetry_info(publish_telemetry)
                     print('Telemetría iniciada automáticamente')
                 except Exception as e:
-                    print(f"Error conectando: {e}")
+                    print(f"Error conectando al 5763: {e}")
+                    # Reintento opcional en 5762 si falla
+                    try:
+                        print("Reintentando en tcp:127.0.0.1:5762...")
+                        dron.connect('tcp:127.0.0.1:5762', baud, freq=10)
+                        print(f'Dron conectado en 5762, state={dron.state}')
+                        publish_event('connected')
+                        dron.send_telemetry_info(publish_telemetry)
+                    except Exception as e2:
+                        print(f"Error final de conexión: {e2}")
 
             threading.Thread(target=do_connect, daemon=True).start()
 
+    if command == 'disconnect':
+        print(f'Comando disconnect recibido')
+        if dron.state != 'disconnected':
+            try:
+                # Detenemos telemetría antes de desconectar para evitar errores
+                dron.stop_sending_telemetry_info()
+                dron.disconnect()
+                print('Dron desconectado correctamente')
+                publish_event('disconnected')
+            except Exception as e:
+                print(f"Error desconectando: {e}")
+        else:
+            print('El dron ya estaba desconectado')
+            publish_event('disconnected')
+
+    if command == 'arm':
+        print(f'Comando arm recibido, dron.state={dron.state}')
+        # Permitimos reintentar si falla la UI o si ya está armado (idempotente)
+        if dron.state == 'connected' or dron.state == 'armed':
+            def do_arm():
+                if dron.state == 'armed':
+                    print('Ya está armado, enviando evento armed')
+                    publish_event('armed')
+                    return
+
+                try:
+                    print('Iniciando armado...')
+                    dron.arm()
+                    print(f'Armado completado, state={dron.state}')
+                    if dron.state == 'armed':
+                        publish_event('armed')
+                    else:
+                        print(f'ERROR: arm() completó pero state={dron.state}')
+                except Exception as e:
+                    print(f'ERROR en arm: {e}')
+            threading.Thread(target=do_arm, daemon=True).start()
+        else:
+            print(f'No se puede armar: dron.state={dron.state}')
+
     if command == 'arm_takeOff':
         print(f'Comando arm_takeOff recibido, dron.state={dron.state}')
-        if dron.state == 'connected':
+        # Permitimos despegar si está connected (flujo completo) o ya armed (solo takeoff)
+        if dron.state == 'connected' or dron.state == 'armed':
             try:
                 alt = float(payload_str)
             except:
@@ -87,14 +137,18 @@ def on_message(cli, userdata, message):
 
             def do_arm_takeoff():
                 try:
-                    print(f'vamos a armar, altura={alt}')
-                    dron.arm()
-                    print(f'armado completado, state={dron.state}')
+                    # Solo intentamos armar si NO estamos ya armados
+                    if dron.state != 'armed':
+                        print(f'vamos a armar, altura={alt}')
+                        dron.arm()
+                        print(f'armado completado, state={dron.state}')
+
+                    # Verificamos si estamos armados antes de despegar
                     if dron.state == 'armed':
                         print('vamos a despegar')
                         dron.takeOff(alt, blocking=False, callback=publish_event, params='flying')
                     else:
-                        print(f'ERROR: arm() completó pero state={dron.state}')
+                        print(f'ERROR: No se pudo armar o estado incorrecto state={dron.state}')
                 except Exception as e:
                     print(f'ERROR en arm/takeoff: {e}')
             threading.Thread(target=do_arm_takeoff, daemon=True).start()
@@ -154,15 +208,16 @@ def on_connect(client, userdata, flags, reason_code, properties):
         print("connected OK Returned code=", reason_code)
         connected = True
         # Re-suscribirse aquí para que al reconectar no se pierdan las suscripciones
-        client.subscribe('+/autopilotServiceDemo/#')
-        print('Suscrito a +/autopilotServiceDemo/#')
+        client.subscribe('+/autopilotService04/#')
+        print('Suscrito a +/autopilotService04/#')
     else:
         print("Bad connection Returned code=", reason_code)
 
 
 dron = Dron()
 
-client = mqtt.Client(CallbackAPIVersion.VERSION2, "autopilotServiceDemo", transport="websockets")
+client = mqtt.Client(CallbackAPIVersion.VERSION2, "autopilotService04", transport="websockets")
+client.ws_set_options(path="/mqtt") # Asegurar path correcto para brokers estándar
 
 # me conecto al broker de la universidad
 broker_address = "dronseetac.upc.edu"

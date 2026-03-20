@@ -54,7 +54,15 @@
         <!-- Control de Voz -->
         <div style="margin-top: 15px; padding: 15px; background-color: #333; border-radius: 5px; text-align: center;">
             <button id="botonVoz" class="boton" style="background-color: #FF6B6B;" onclick="toggleVoiceControl()">🎤 Activar Control de Voz</button>
+
             <p id="voiceStatus" style="color: #FFD700; font-size: 16px; margin-top: 10px; min-height: 20px;"></p>
+
+            <!-- Visualizador de transcripción -->
+            <div style="background-color: #222; padding: 10px; margin: 10px 0; border-radius: 5px; border: 1px solid #555;">
+                <span style="color: #aaa; font-size: 12px; display:block;">Escuchando:</span>
+                <span id="voiceTranscript" style="color: white; font-size: 18px; font-weight: bold; font-style: italic;">...</span>
+            </div>
+
             <p id="voiceCommand" style="color: #4CAF50; font-size: 14px; margin-top: 5px; min-height: 20px; font-weight: bold;"></p>
         </div>
 
@@ -145,11 +153,15 @@ if (SpeechRecognition) {
 
         transcript = transcript.toLowerCase().trim();
 
+        // Actualizar visualizador
+        const tObj = document.getElementById("voiceTranscript");
+        if(tObj) tObj.innerText = transcript;
+
         if (event.results[event.results.length - 1].isFinal) {
-            updateVoiceCommand(`Comando detectado: "${transcript}"`);
+            updateVoiceStatus("✅ Procesando...");
             processVoiceCommand(transcript);
         } else {
-            updateVoiceStatus(`Escuchando: "${transcript}"`);
+            updateVoiceStatus("🎤 Escuchando...");
         }
     };
 
@@ -174,8 +186,9 @@ function toggleVoiceControl() {
     } else {
         isStopping = true;
         recognition.stop();
-        updateVoiceStatus("");
+        updateVoiceStatus("🛑 Detenido");
         updateVoiceCommand("");
+        document.getElementById("voiceTranscript").innerText = "...";
         document.getElementById("botonVoz").textContent = "🎤 Activar Control de Voz";
         document.getElementById("botonVoz").style.backgroundColor = "#FF6B6B";
     }
