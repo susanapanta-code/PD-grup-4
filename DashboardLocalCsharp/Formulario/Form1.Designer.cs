@@ -77,6 +77,10 @@
             this.bananaBtn = new System.Windows.Forms.Button();
             this.telefonoBtn = new System.Windows.Forms.Button();
             this.relojBtn = new System.Windows.Forms.Button();
+            this.groupBox5 = new System.Windows.Forms.GroupBox();
+            this.label11 = new System.Windows.Forms.Label();
+            this.fotoBtn = new System.Windows.Forms.Button();
+            this.galeriaBtn = new System.Windows.Forms.Button();
             ((System.ComponentModel.ISupportInitialize)(this.headingTrackBar)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.velocidadTrackBar)).BeginInit();
             this.groupBox4.SuspendLayout();
@@ -86,6 +90,7 @@
             ((System.ComponentModel.ISupportInitialize)(this.webView21)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.pictureBoxVideo)).BeginInit();
             this.groupBox3.SuspendLayout();
+            this.groupBox5.SuspendLayout();
             this.SuspendLayout();
             // 
             // label4
@@ -159,7 +164,6 @@
             // 
             // groupBox4
             // 
-            this.groupBox4.Controls.Add(this.videoBtn);
             this.groupBox4.Controls.Add(this.limpiarMapaBtn);
             this.groupBox4.Controls.Add(this.label10);
             this.groupBox4.Controls.Add(this.flightModeLbl);
@@ -185,7 +189,8 @@
             // 
             // videoBtn
             // 
-            this.videoBtn.Location = new System.Drawing.Point(188, 270);
+            this.videoBtn.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.videoBtn.Location = new System.Drawing.Point(13, 39);
             this.videoBtn.Margin = new System.Windows.Forms.Padding(4);
             this.videoBtn.Name = "videoBtn";
             this.videoBtn.Size = new System.Drawing.Size(156, 32);
@@ -196,7 +201,7 @@
             // 
             // limpiarMapaBtn
             // 
-            this.limpiarMapaBtn.Location = new System.Drawing.Point(8, 270);
+            this.limpiarMapaBtn.Location = new System.Drawing.Point(106, 270);
             this.limpiarMapaBtn.Margin = new System.Windows.Forms.Padding(4);
             this.limpiarMapaBtn.Name = "limpiarMapaBtn";
             this.limpiarMapaBtn.Size = new System.Drawing.Size(156, 32);
@@ -619,7 +624,7 @@
             this.groupBox3.Margin = new System.Windows.Forms.Padding(4);
             this.groupBox3.Name = "groupBox3";
             this.groupBox3.Padding = new System.Windows.Forms.Padding(4);
-            this.groupBox3.Size = new System.Drawing.Size(295, 208);
+            this.groupBox3.Size = new System.Drawing.Size(177, 208);
             this.groupBox3.TabIndex = 33;
             this.groupBox3.TabStop = false;
             this.groupBox3.Text = "Detección";
@@ -636,6 +641,7 @@
             // bananaBtn
             // 
             this.bananaBtn.AutoSize = true;
+            this.bananaBtn.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.bananaBtn.Location = new System.Drawing.Point(19, 50);
             this.bananaBtn.Margin = new System.Windows.Forms.Padding(4);
             this.bananaBtn.Name = "bananaBtn";
@@ -648,6 +654,7 @@
             // telefonoBtn
             // 
             this.telefonoBtn.AutoSize = true;
+            this.telefonoBtn.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.telefonoBtn.Location = new System.Drawing.Point(19, 104);
             this.telefonoBtn.Margin = new System.Windows.Forms.Padding(4);
             this.telefonoBtn.Name = "telefonoBtn";
@@ -660,6 +667,7 @@
             // relojBtn
             // 
             this.relojBtn.AutoSize = true;
+            this.relojBtn.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.relojBtn.Location = new System.Drawing.Point(19, 159);
             this.relojBtn.Margin = new System.Windows.Forms.Padding(4);
             this.relojBtn.Name = "relojBtn";
@@ -669,11 +677,61 @@
             this.relojBtn.UseVisualStyleBackColor = true;
             this.relojBtn.Click += new System.EventHandler(this.relojBtn_Click);
             // 
+            // groupBox5
+            // 
+            this.groupBox5.Controls.Add(this.galeriaBtn);
+            this.groupBox5.Controls.Add(this.fotoBtn);
+            this.groupBox5.Controls.Add(this.videoBtn);
+            this.groupBox5.Controls.Add(this.label11);
+            this.groupBox5.Font = new System.Drawing.Font("Microsoft Sans Serif", 15.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.groupBox5.Location = new System.Drawing.Point(327, 629);
+            this.groupBox5.Margin = new System.Windows.Forms.Padding(4);
+            this.groupBox5.Name = "groupBox5";
+            this.groupBox5.Padding = new System.Windows.Forms.Padding(4);
+            this.groupBox5.Size = new System.Drawing.Size(365, 125);
+            this.groupBox5.TabIndex = 34;
+            this.groupBox5.TabStop = false;
+            this.groupBox5.Text = "Videostream";
+            // 
+            // label11
+            // 
+            this.label11.AutoSize = true;
+            this.label11.Location = new System.Drawing.Point(153, 60);
+            this.label11.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
+            this.label11.Name = "label11";
+            this.label11.Size = new System.Drawing.Size(0, 31);
+            this.label11.TabIndex = 18;
+            // 
+            // fotoBtn
+            // 
+            this.fotoBtn.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.fotoBtn.Location = new System.Drawing.Point(188, 38);
+            this.fotoBtn.Margin = new System.Windows.Forms.Padding(4);
+            this.fotoBtn.Name = "fotoBtn";
+            this.fotoBtn.Size = new System.Drawing.Size(156, 32);
+            this.fotoBtn.TabIndex = 19;
+            this.fotoBtn.Text = "Tomar Foto";
+            this.fotoBtn.UseVisualStyleBackColor = true;
+            this.fotoBtn.Click += new System.EventHandler(this.fotoBtn_Click);
+            // 
+            // galeriaBtn
+            // 
+            this.galeriaBtn.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.galeriaBtn.Location = new System.Drawing.Point(90, 79);
+            this.galeriaBtn.Margin = new System.Windows.Forms.Padding(4);
+            this.galeriaBtn.Name = "galeriaBtn";
+            this.galeriaBtn.Size = new System.Drawing.Size(156, 32);
+            this.galeriaBtn.TabIndex = 20;
+            this.galeriaBtn.Text = "Abrir Galería";
+            this.galeriaBtn.UseVisualStyleBackColor = true;
+            this.galeriaBtn.Click += new System.EventHandler(this.galeriaBtn_Click);
+            // 
             // Form1
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 16F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(1924, 812);
+            this.Controls.Add(this.groupBox5);
             this.Controls.Add(this.groupBox3);
             this.Controls.Add(this.pictureBoxVideo);
             this.Controls.Add(this.webView21);
@@ -704,6 +762,8 @@
             ((System.ComponentModel.ISupportInitialize)(this.pictureBoxVideo)).EndInit();
             this.groupBox3.ResumeLayout(false);
             this.groupBox3.PerformLayout();
+            this.groupBox5.ResumeLayout(false);
+            this.groupBox5.PerformLayout();
             this.ResumeLayout(false);
             this.PerformLayout();
 
@@ -760,6 +820,10 @@
         private System.Windows.Forms.Label label8;
         private System.Windows.Forms.Button telefonoBtn;
         private System.Windows.Forms.Button relojBtn;
+        private System.Windows.Forms.GroupBox groupBox5;
+        private System.Windows.Forms.Button fotoBtn;
+        private System.Windows.Forms.Label label11;
+        private System.Windows.Forms.Button galeriaBtn;
     }
 }
 

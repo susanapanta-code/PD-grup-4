@@ -432,6 +432,45 @@ namespace Formulario
             EnviarObjeto(74);
         }
 
+        private void GuardarFoto()
+        {
+            try
+            {
+                if (pictureBoxVideo.Image == null)
+                {
+                    MessageBox.Show("No hay imagen");
+                    return;
+                }
+
+                string carpeta = Path.Combine(Application.StartupPath, "fotos");
+
+                if (!Directory.Exists(carpeta))
+                    Directory.CreateDirectory(carpeta);
+
+                string nombre = "foto_" + DateTime.Now.ToString("yyyyMMdd_HHmmss") + ".jpg";
+
+                string ruta = Path.Combine(carpeta, nombre);
+
+                pictureBoxVideo.Image.Save(ruta, System.Drawing.Imaging.ImageFormat.Jpeg);
+
+                MessageBox.Show("Foto guardada");
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Error: " + ex.Message);
+            }
+        }
+
+        private void fotoBtn_Click(object sender, EventArgs e)
+        {
+            GuardarFoto();
+        }
+        private void galeriaBtn_Click(object sender, EventArgs e)
+        {
+            GaleriaForm galeria = new GaleriaForm();
+            galeria.Show();
+        }
+
         private async void Form1_Load(object sender, EventArgs e)
         {
             await webView21.EnsureCoreWebView2Async(null);
