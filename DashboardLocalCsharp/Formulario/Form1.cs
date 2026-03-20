@@ -1,274 +1,491 @@
-﻿using System;
+﻿using MQTTnet;
+using MQTTnet.Client;
+using MQTTnet.Client.Options;
+using Newtonsoft.Json;
+using System;
 using System.Collections.Generic;
-using System.ComponentModel;
-using System.Data;
 using System.Diagnostics;
 using System.Drawing;
-using System.Linq;
+using System.Globalization;
+using System.IO;
+using System.Net;
+using System.Net.Sockets;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
-using csDronLink;
 
 namespace Formulario
 {
     public partial class Form1 : Form
     {
-        Dron dron = new Dron();
+        IMqttClient client;
+
+        Dictionary<string, object> ultimaTelemetria = null;
+        bool telemetriaActiva = false;
+
+        TcpListener listener;
+        Process pythonProcess;
 
         public Form1()
         {
             InitializeComponent();
-            // No queremos que nos molesten con la excepción Cross-Threading
             CheckForIllegalCrossThreadCalls = false;
-            // Configuramos los 9 botones de movimiento. Todos ellos tendrán asociada la misma función
-            // para gestionar el evento click, pero en el tag ponemos la palabra que identifica la dirección 
-            // del movimiento, que es la palabra que hay que pasarle como parámetro al dron para que haga la
-            // operación. El texto es el código de una flechita que representa la dirección del movimineto.
 
-            Font letraGrande = new Font("Arial", 14);
-            Font letraPequeña = new Font("Arial", 12);
-
-            // Ahora configuramos los botones de navegación
-
-            button9.Text = "NW";
-            button9.Tag = "NorthWest";
-            button9.Click += navButton_Click;
-            button9.Font = letraGrande;
-
-
-            button10.Text = "N";
-            button10.Tag = "North";
-            button10.Click += navButton_Click;
-            button10.Font = letraGrande;
-
-
-            button11.Text = "NE";
-            button11.Tag = "NorthEast";
-            button11.Click += navButton_Click;
-            button11.Font = letraGrande;
-
-
-            button12.Text = "W";
-            button12.Tag = "West";
-            button12.Click += navButton_Click;
-            button12.Font = letraGrande;
-
-
-            button13.Text = "Stop";
-            button13.Tag = "Stop";
-            button13.Click += navButton_Click;
-            button13.Font = letraPequeña;
-
-
-            button14.Text = "E";
-            button14.Tag = "East";
-            button14.Click += navButton_Click;
-            button14.Font = letraGrande;
-
-
-            button15.Text = "SW";
-            button15.Tag = "SouthWest";
-            button15.Click += navButton_Click;
-            button15.Font = letraGrande;
-
-
-            button16.Text = "S";
-            button16.Tag = "South";
-            button16.Click += navButton_Click;
-            button16.Font = letraGrande;
-
-
-            button17.Text = "SE";
-            button17.Tag = "SouthEast";
-            button17.Click += navButton_Click;
-            button17.Font = letraGrande;
-
+            ConfigurarBotones();
+            ConectarMQTT();
         }
 
-        private void but_connect_Click(object sender, EventArgs e)
+        // ================= MQTT =================
+
+        private async void ConectarMQTT()
         {
-            try
+            var factory = new MqttFactory();
+            client = factory.CreateMqttClient();
+
+            var options = new MqttClientOptionsBuilder()
+                .WithWebSocketServer("broker.hivemq.com:8000/mqtt")
+                .Build();
+
+            client.UseApplicationMessageReceivedHandler(e =>
             {
-                dron.Conectar("simulacion");
-                //dron.Conectar("produccion", "com14");
+                string topic = e.ApplicationMessage.Topic;
+
+                string payload = "";
+                if (e.ApplicationMessage.Payload != null)
+                {
+                    payload = Encoding.UTF8.GetString(e.ApplicationMessage.Payload);
+                }
+
+                ProcesarMensaje(topic, payload);
+            });
+
+            await client.ConnectAsync(options);
+            await client.SubscribeAsync("autopilotServiceDemo/interfazGlobal/#");
+        }
+
+        private void ProcesarMensaje(string topic, string payload)
+        {
+            // ---- EVENTOS ----
+
+            if (topic.EndsWith("/connected"))
+            {
                 but_connect.BackColor = Color.Green;
                 but_connect.ForeColor = Color.White;
+                but_connect.Text = "Conectado";
             }
-            catch (Exception ex)
+
+            else if (topic.EndsWith("/flying"))
             {
-                MessageBox.Show("No se pudo conectar con el dron. Verifique que el simulador esté activo y que no haya otra estación conectada.\n\nDetalle: " + ex.Message, "Error de Conexión", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                SetEstado("flying");
+            }
+
+            else if (topic.EndsWith("/landed"))
+            {
+                SetEstado("landed");
+            }
+
+            else if (topic.EndsWith("/atHome"))
+            {
+                SetEstado("atHome");
+            }
+
+            // ---- TELEMETRÍA ----
+
+            else if (topic.EndsWith("/telemetryInfo"))
+            {
+                var data = JsonConvert.DeserializeObject<Dictionary<string, object>>(payload);
+
+                // 🔹 Guardar SIEMPRE
+                ultimaTelemetria = data;
+
+                // 🔹 Mostrar SOLO si está activa
+                if (telemetriaActiva)
+                {
+                    MostrarTelemetria(data);
+                }
             }
         }
 
-
-        private void EnAire(byte id, object param)
+        private void MostrarTelemetria(Dictionary<string, object> data)
         {
-            // Esto es lo que haré cuando el dron haya alcanzado la altura de despegue
-            despegarBtn.BackColor = Color.Green;
-            despegarBtn.ForeColor = Color.White;
-            despegarBtn.Text = (string)param;
+            latitudLbl.Text = data.ContainsKey("lat") && data["lat"] != null
+                ? data["lat"].ToString()
+                : "";
+
+            longitudLbl.Text = data.ContainsKey("lon") && data["lon"] != null
+                ? data["lon"].ToString()
+                : "";
+
+            altitudLbl.Text = data.ContainsKey("alt") ? data["alt"].ToString() : "";
+
+            headLbl.Text = data.ContainsKey("heading") ? data["heading"].ToString() : "";
+
+            flightModeLbl.Text =
+                data.ContainsKey("flightMode") && data["flightMode"] != null
+                ? data["flightMode"].ToString()
+                : "";
+
+            if (data.ContainsKey("lat") && data["lat"] != null && data.ContainsKey("lon") && data["lon"] != null)
+            {
+                string lat = Convert.ToDouble(data["lat"]).ToString(CultureInfo.InvariantCulture);
+                string lon = Convert.ToDouble(data["lon"]).ToString(CultureInfo.InvariantCulture);
+
+                webView21.ExecuteScriptAsync($"actualizarPos({lat}, {lon});");
+            }
         }
 
-        private void but_takeoff_Click(object sender, EventArgs e)
+        // ================= ESTADO UI =================
+
+        private void ResetBotones()
         {
-            // Restablecer el botón de aterrizar a su estado original
-            button7.BackColor = Color.FromArgb(255, 192, 128);
+            Color baseColor = Color.FromArgb(255, 192, 128);
+
+            despegarBtn.BackColor = baseColor;
+            despegarBtn.ForeColor = Color.Black;
+            despegarBtn.Text = "Despegar";
+
+            button7.BackColor = baseColor;
             button7.ForeColor = Color.Black;
             button7.Text = "Aterrizar";
 
-            // Restablecer el botón de RTL a su estado original
-            button6.BackColor = Color.FromArgb(255, 192, 128);
+            button6.BackColor = baseColor;
             button6.ForeColor = Color.Black;
             button6.Text = "RTL";
-
-            // Click en boton para dspegar
-            // Llamada no bloqueante para no bloquear el formulario
-            dron.Despegar(metrosDespegue_trackBar.Value, bloquear: false, EnAire, "Volando");
-            despegarBtn.BackColor = Color.Yellow;
         }
 
-        private void navButton_Click(object sender, EventArgs e)
+        private void SetEstado(string estado)
         {
-            // Aqui vendremos cuando se clique cualquiera de los botones de navagación
-            // En el tag del boton tenemos la dirección de navegación.
-            Button b = (Button)sender;
-            string tag = b.Tag.ToString();
-            dron.Navegar(tag);
+            ResetBotones();
 
-        }
-
-        private void EnTierra(byte id, object mensaje)
-        {
-            // Aqui vendre cuando el dron esté en tierra
-            // El mensaje me dice si vengo de un aterrizaje o de un RTL
-
-            // Restablecer el botón de despegue a su estado original
-            despegarBtn.BackColor = Color.FromArgb(255, 192, 128);
-            despegarBtn.ForeColor = Color.Black;
-            despegarBtn.Text = "Despegar"; 
-
-            if ((string)mensaje == "Aterrizaje")
+            if (estado == "flying")
+            {
+                despegarBtn.BackColor = Color.Green;
+                despegarBtn.ForeColor = Color.White;
+                despegarBtn.Text = "En el aire";
+            }
+            else if (estado == "landed")
+            {
                 button7.BackColor = Color.Green;
-            else
+                button7.ForeColor = Color.White;
+                button7.Text = "En tierra";
+            }
+            else if (estado == "atHome")
+            {
                 button6.BackColor = Color.Green;
+                button6.ForeColor = Color.White;
+                button6.Text = "En tierra";
+            }
         }
 
+        // ================= CONFIG BOTONES =================
 
-
-        private void aterrizarBtn_Click(object sender, EventArgs e)
+        private void ConfigurarBotones()
         {
-            // Click en el botón de aterrizar
-            dron.Aterrizar(bloquear: false, EnTierra, "Aterrizaje");
+            Font grande = new Font("Arial", 14);
+
+            button9.Tag = "NorthWest";
+            button10.Tag = "North";
+            button11.Tag = "NorthEast";
+            button12.Tag = "West";
+            button13.Tag = "Stp";
+            button14.Tag = "East";
+            button15.Tag = "SouthWest";
+            button16.Tag = "South";
+            button17.Tag = "SouthEast";
+
+            foreach (Button b in new[] {
+                button9, button10, button11,
+                button12, button13, button14,
+                button15, button16, button17 })
+            {
+                b.Click += navButton_Click;
+                b.Font = grande;
+            }
+        }
+
+        // ================= BOTONES =================
+
+        private async void but_connect_Click(object sender, EventArgs e)
+        {
+            await client.PublishAsync("interfazGlobal/autopilotServiceDemo/connect");
+        }
+
+        private async void but_takeoff_Click(object sender, EventArgs e)
+        {
+            ResetBotones();
+
+            despegarBtn.BackColor = Color.Yellow;
+            despegarBtn.Text = "Despegando...";
+
+            await client.PublishAsync("interfazGlobal/autopilotServiceDemo/arm_takeOff");
+        }
+
+        private async void aterrizarBtn_Click(object sender, EventArgs e)
+        {
+            ResetBotones();
+
             button7.BackColor = Color.Yellow;
+            button7.Text = "Aterrizando...";
+
+            await client.PublishAsync("interfazGlobal/autopilotServiceDemo/Land");
         }
 
-        private void RTLBtn_Click(object sender, EventArgs e)
+        private async void RTLBtn_Click(object sender, EventArgs e)
         {
-            // Click en el botón de RTL
-            dron.RTL(bloquear: false, EnTierra, "RTL");
+            ResetBotones();
+
             button6.BackColor = Color.Yellow;
+            button6.Text = "Retornando...";
+
+            await client.PublishAsync("interfazGlobal/autopilotServiceDemo/RTL");
         }
 
-        private void enviarTelemetriaBtn_Click(object sender, EventArgs e)
+        private async void navButton_Click(object sender, EventArgs e)
         {
+            Button b = (Button)sender;
+            string direccion = b.Tag.ToString();
 
-            dron.EnviarDatosTelemetria(ProcesarTelemetria);
+            await client.PublishAsync(
+                "interfazGlobal/autopilotServiceDemo/go",
+                Encoding.UTF8.GetBytes(direccion)
+            );
         }
 
-        private void detenerTelemetriaBtn_Click(object sender, EventArgs e)
+        private async void enviarTelemetriaBtn_Click(object sender, EventArgs e)
         {
-            dron.DetenerDatosTelemetria();
+            telemetriaActiva = true;
+
+            // Mostrar inmediatamente lo último recibido
+            if (ultimaTelemetria != null)
+            {
+                MostrarTelemetria(ultimaTelemetria);
+            }
+
+            await client.PublishAsync("interfazGlobal/autopilotServiceDemo/startTelemetry");
         }
 
-        private void ProcesarTelemetria(byte id, List<(string nombre, float valor)> telemetria)
+        private async void detenerTelemetriaBtn_Click(object sender, EventArgs e)
         {
-            // Aqui vendre cada vez que llegue un paquete de telemetría
-            double lat = ((double)telemetria[1].valor) / 0.1E+8;
-            double lon = ((double)telemetria[2].valor) / 0.1E+8;
-            double heading = ((double)telemetria[3].valor) / 100;
-            double mode = (double)telemetria[4].valor;
-            string modeStr = "";
+            telemetriaActiva = false;
 
-            //0:    "STABILIZE";
-            //3:    "AUTO";
-            //4:    "GUIDED";
-            //5:    "LOITER";
-            //6:    "RTL";
-            //9:    "LAND";
-
-             if (mode == 0) {
-                modeStr = "STABILIZE"; 
-                } else if (mode == 3)
-                { modeStr = "AUTO";
-                } else if (mode == 4)
-                { modeStr = "GUIDED";
-                } else if (mode == 5)
-                { modeStr = "LOITER";
-                } else if (mode == 6)
-                { modeStr = "RTL";
-                } else if (mode == 9)
-                { modeStr = "LAND";
-                } 
-
-
-            // Coloco los datos de telemetria en su sitio
-            altitudLbl.Text = telemetria[0].valor.ToString();
-            latitudLbl.Text = lat.ToString();
-            longitudLbl.Text = lon.ToString();
-            headLbl.Text = heading.ToString();
-            flightModeLbl.Text = modeStr;
-
+            await client.PublishAsync("interfazGlobal/autopilotServiceDemo/stopTelemetry");
         }
 
         private void headingTrackBar_Scroll(object sender, EventArgs e)
         {
-            // Recojo el valor del heading seleccionado
-            int n = headingTrackBar.Value;
-            headingLbl.Text = n.ToString();
+            headingLbl.Text = headingTrackBar.Value.ToString();
         }
 
-
-        private void headingTrackBar_MouseUp(object sender, MouseEventArgs e)
+        private async void headingTrackBar_MouseUp(object sender, MouseEventArgs e)
         {
-            // Cuando se libera la barra de desplazamiento recojo el valor
-            // definitivo para el heading y lo envío al dron
-            float valorSeleccionado = headingTrackBar.Value;
-            dron.CambiarHeading(valorSeleccionado, bloquear: false);
+            int valor = headingTrackBar.Value;
+
+            await client.PublishAsync(
+                "interfazGlobal/autopilotServiceDemo/changeHeading",
+                Encoding.UTF8.GetBytes(valor.ToString())
+            );
         }
 
         private void velocidadTrackBar_Scroll(object sender, EventArgs e)
         {
-            // Recojo y muestro el valor la velocidad según se mueve 
-            // la barra de desplazamiento
-            int n = velocidadTrackBar.Value;
-            velocidadLbl.Text = n.ToString();
-
+            velocidadLbl.Text = velocidadTrackBar.Value.ToString();
         }
 
-        private void velocidadTrackBar_MouseUp(object sender, MouseEventArgs e)
+        private async void velocidadTrackBar_MouseUp(object sender, MouseEventArgs e)
         {
-            // Cuando se libera la barra de desplazamiento recojo el valor
-            // definitivo para la velocidad y lo envío al dron
-            int valorSeleccionado = velocidadTrackBar.Value;
-            dron.CambiaVelocidad(valorSeleccionado);
-        }
+            int valor = velocidadTrackBar.Value;
 
+            await client.PublishAsync(
+                "interfazGlobal/autopilotServiceDemo/changeNavSpeed",
+                Encoding.UTF8.GetBytes(valor.ToString())
+            );
+        }
 
         private void metrosDespegue_trackBar_Scroll(object sender, EventArgs e)
         {
-            // Actualizar el label con el valor seleccionado
             alturaBox.Text = metrosDespegue_trackBar.Value.ToString();
         }
 
-        private void Form1_Load(object sender, EventArgs e)
+        private async void ArmarBtn_Click_Click(object sender, EventArgs e)
         {
-
+            await client.PublishAsync("interfazGlobal/autopilotServiceDemo/arm_takeOff");
         }
 
-        private void ArmarBtn_Click_Click(object sender, EventArgs e)
+        private async void CoreWebView2_WebMessageReceived(object sender, Microsoft.Web.WebView2.Core.CoreWebView2WebMessageReceivedEventArgs e)
         {
-            dron.PonModoGuiado();
+            var json = e.WebMessageAsJson;
+
+            dynamic data = Newtonsoft.Json.JsonConvert.DeserializeObject(json);
+
+            double lat = (double)data.lat;
+            double lon = (double)data.lon;
+
+            string latStr = lat.ToString(CultureInfo.InvariantCulture);
+            string lonStr = lon.ToString(CultureInfo.InvariantCulture);
+
+            await client.PublishAsync(
+                "interfazGlobal/autopilotServiceDemo/goTo",
+                Encoding.UTF8.GetBytes($"{latStr},{lonStr}")
+            );
         }
+
+        private async void limpiarMapaBtn_Click(object sender, EventArgs e)
+        {
+            await webView21.ExecuteScriptAsync("limpiarRuta();");
+        }
+
+        private async Task StartVideoAsync()
+        {
+            // Servidor TCP
+            listener = new TcpListener(IPAddress.Loopback, 5000);
+            listener.Start();
+
+            // Lanzar Python
+            pythonProcess = new Process();
+            //pythonProcess.StartInfo.FileName = @"C:\Users\LENOVO\AppData\Local\Programs\Python\Python312\Lib\venv\scripts\nt\python.exe";
+            pythonProcess.StartInfo.FileName = @"C:\Users\LENOVO\AppData\Local\Programs\Python\Python312\python.exe";
+            pythonProcess.StartInfo.Arguments = @"C:\Users\LENOVO\Desktop\Uni\4B\PD\PD-grup-4\receiverParaCs.py";
+            //pythonProcess.StartInfo.Arguments = @"C:\Users\LENOVO\Desktop\Uni\4B\PD\Tutorial_VideoStreaming-main\Tutorial_VideoStreaming-main\webRTC\redGlobal\receiverGlobalWebRTC.py";
+            pythonProcess.StartInfo.UseShellExecute = false;
+            pythonProcess.Start();
+
+            // Esperar conexión
+            var client = await listener.AcceptTcpClientAsync();
+            var stream = client.GetStream();
+
+            pictureBoxVideo.Visible = false;
+
+            await Task.Run(() =>
+            {
+                while (true)
+                {
+                    try
+                    {
+                        byte[] lengthBytes = new byte[4];
+                        int read = stream.Read(lengthBytes, 0, 4);
+                        if (read == 0) break;
+
+                        int length = IPAddress.NetworkToHostOrder(BitConverter.ToInt32(lengthBytes, 0));
+
+                        byte[] buffer = new byte[length];
+                        int offset = 0;
+
+                        while (offset < length)
+                        {
+                            int r = stream.Read(buffer, offset, length - offset);
+                            if (r == 0) break;
+                            offset += r;
+                        }
+
+                        using (var ms = new MemoryStream(buffer))
+                        {
+                            Image img = Image.FromStream(ms);
+
+                            pictureBoxVideo.Invoke(new Action(() =>
+                            {
+                                pictureBoxVideo.Image?.Dispose();
+                                pictureBoxVideo.Image = new Bitmap(img);
+                            }));
+                        }
+                    }
+                    catch
+                    {
+                        break;
+                    }
+                }
+            });
+        }
+
+        private async void videoBtn_Click(object sender, EventArgs e)
+        {
+            pictureBoxVideo.Visible = true;
+        }
+
+        private void EnviarObjeto(int objectID)
+        {
+            try
+            {
+                using (TcpClient client = new TcpClient("127.0.0.1", 6000))
+                {
+                    byte[] data = Encoding.UTF8.GetBytes(objectID.ToString());
+                    client.GetStream().Write(data, 0, data.Length);
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Error enviando objeto: " + ex.Message);
+            }
+        }
+
+        private void bananaBtn_Click(object sender, EventArgs e)
+        {
+            EnviarObjeto(46);
+        }
+
+        private void telefonoBtn_Click(object sender, EventArgs e)
+        {
+            EnviarObjeto(67);
+        }
+
+        private void relojBtn_Click(object sender, EventArgs e)
+        {
+            EnviarObjeto(74);
+        }
+
+        private void GuardarFoto()
+        {
+            try
+            {
+                if (pictureBoxVideo.Image == null)
+                {
+                    MessageBox.Show("No hay imagen");
+                    return;
+                }
+
+                string carpeta = Path.Combine(Application.StartupPath, "fotos");
+
+                if (!Directory.Exists(carpeta))
+                    Directory.CreateDirectory(carpeta);
+
+                string nombre = "foto_" + DateTime.Now.ToString("yyyyMMdd_HHmmss") + ".jpg";
+
+                string ruta = Path.Combine(carpeta, nombre);
+
+                pictureBoxVideo.Image.Save(ruta, System.Drawing.Imaging.ImageFormat.Jpeg);
+
+                MessageBox.Show("Foto guardada");
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Error: " + ex.Message);
+            }
+        }
+
+        private void fotoBtn_Click(object sender, EventArgs e)
+        {
+            GuardarFoto();
+        }
+        private void galeriaBtn_Click(object sender, EventArgs e)
+        {
+            GaleriaForm galeria = new GaleriaForm();
+            galeria.Show();
+        }
+
+        private async void Form1_Load(object sender, EventArgs e)
+        {
+            await webView21.EnsureCoreWebView2Async(null);
+            webView21.CoreWebView2.WebMessageReceived += CoreWebView2_WebMessageReceived;
+            webView21.CoreWebView2.Settings.IsScriptEnabled = true;
+            webView21.CoreWebView2.Settings.AreHostObjectsAllowed = true;
+
+            webView21.CoreWebView2.Settings.IsWebMessageEnabled = true;
+            webView21.CoreWebView2.Settings.AreDefaultScriptDialogsEnabled = true;
+            webView21.CoreWebView2.Settings.IsStatusBarEnabled = true;
+
+            webView21.Source = new Uri(Application.StartupPath + "\\map.html");
+
+            await StartVideoAsync();
+        }
+
     }
 }
