@@ -42,8 +42,13 @@ namespace Formulario
             var factory = new MqttFactory();
             client = factory.CreateMqttClient();
 
+            //var options = new MqttClientOptionsBuilder()
+            //    .WithWebSocketServer("broker.hivemq.com:8000/mqtt")
+            //    .Build();
+
             var options = new MqttClientOptionsBuilder()
-                .WithWebSocketServer("broker.hivemq.com:8000/mqtt")
+                .WithWebSocketServer("dronseetac.upc.edu:8000/mqtt")
+                .WithCredentials("dronsEETAC", "mimara1456.")
                 .Build();
 
             client.UseApplicationMessageReceivedHandler(e =>
