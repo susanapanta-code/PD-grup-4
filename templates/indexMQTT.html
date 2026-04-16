@@ -201,14 +201,16 @@
     <!-- LÓGICA DE LA APLICACIÓN -->
     <script>
         // ================= MQTT CONFIG =================
-        // Configuración para el broker de la UPC (asegurar que coincida con lo solicitado)
-        const MQTT_BROKER = 'ws://dronseetac.upc.edu:8000/mqtt';
-        const MQTT_USER = 'dronsEETAC';
-        const MQTT_PASS = 'mimara1456.';
+        // Broker test.mosquitto.org con soporte WSS en puerto 8081
+        const isHttps = window.location.protocol === 'https:';
+        const wsProtocol = isHttps ? 'wss:' : 'ws:';
+        const MQTT_BROKER = wsProtocol + '//test.mosquitto.org:8081';
+
+        console.log('🔧 MQTT CONFIG:');
+        console.log('   Protocolo:', wsProtocol);
+        console.log('   Broker:', MQTT_BROKER);
 
         const client = mqtt.connect(MQTT_BROKER, {
-            username: MQTT_USER,
-            password: MQTT_PASS,
             clean: false,
             clientId: 'webapp_v2_' + Math.random().toString(16).substr(2, 8),
             reconnectPeriod: 2000,
