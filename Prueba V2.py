@@ -2101,6 +2101,14 @@ def crear_ventana():
     tk.Label(telemetryFrame, text="Estado").grid(row=0, column=2, padx=4, pady=2)
     tk.Label(telemetryFrame, text="Velocidad").grid(row=0, column=3, padx=4, pady=2)
 
+    altShowLbl = tk.Label(telemetryFrame, text="--", fg="blue")
+    altShowLbl.grid(row=1, column=0, padx=4, pady=2)
+    headingShowLbl = tk.Label(telemetryFrame, text="--", fg="blue")
+    headingShowLbl.grid(row=1, column=1, padx=4, pady=2)
+    stateShowLbl = tk.Label(telemetryFrame, text="--", fg="blue")
+    stateShowLbl.grid(row=1, column=2, padx=4, pady=2)
+    speedShowLbl = tk.Label(telemetryFrame, text="--", fg="blue")
+    speedShowLbl.grid(row=1, column=3, padx=4, pady=2)
 
     tk.Label(telemetryFrame, text="Modo vuelo").grid(row=2, column=0, padx=4, pady=2)
     tk.Label(telemetryFrame, text="Latitud").grid(row=2, column=1, padx=4, pady=2)
