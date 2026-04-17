@@ -386,17 +386,16 @@ def on_connect(client, userdata, flags, reason_code, properties):
 
 dron = Dron()
 
-client = mqtt.Client(CallbackAPIVersion.VERSION2, "autopilotService04", transport="websockets")
-client.ws_set_options(path="/mqtt") # Asegurar path correcto para brokers estándar
+client = mqtt.Client(CallbackAPIVersion.VERSION2, "autopilotService04", transport="tcp")
 
-# me conecto al broker de la universidad
-broker_address = "dronseetac.upc.edu"
-broker_port = 8000
-client.username_pw_set("dronsEETAC", "mimara1456.")
+# Usar broker test.mosquitto.org público
+broker_address = "test.mosquitto.org"
+broker_port = 1883
 
 client.on_message = on_message
 client.on_connect = on_connect
-client.connect (broker_address,broker_port)
+client.connect(broker_address, broker_port)
 
-print ('AutopilotServiceDemo esperando peticiones')
+print('AutopilotServiceDemo esperando peticiones')
 client.loop_forever()
+
