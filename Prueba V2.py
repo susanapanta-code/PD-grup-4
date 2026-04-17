@@ -405,9 +405,14 @@ class LocalController:
 
     def __init__(self):
         self.dron = Dron()
+        # Inicializar propiedades que dronLink no define explicitamente en __init__ para evitar AttributeError al pedir telemetria antes de que se establezcan
+        if not hasattr(self.dron, 'heading'):
+            self.dron.heading = 0
+        if not hasattr(self.dron, 'flightMode'):
+            self.dron.flightMode = "--"
 
     def connect(self):
-        return self.dron.connect(LOCAL_CONNECTION_STRING, LOCAL_BAUD)
+        return self.dron.connect(LOCAL_CONNECTION_STRING, LOCAL_BAUD, freq=10)
 
     def disconnect(self):
         return self.dron.disconnect()
@@ -1322,12 +1327,15 @@ def actualizarBotonesSegunEstado():
         for b in navBtns:
             _deshabilitarBtn(b)
 
-    if state != "disconnected":
-        _habilitarBtn(StartTelemBtn, "Iniciar telemetria")
-        _habilitarBtn(StopTelemBtn, "Parar telemetria")
-    else:
+    if state == "disconnected":
         _deshabilitarBtn(StartTelemBtn, "Iniciar telemetria")
         _deshabilitarBtn(StopTelemBtn, "Parar telemetria")
+    elif _es_local() and getattr(controller, "dron", None) and getattr(controller.dron, "sendTelemetryInfo", False):
+        _deshabilitarBtn(StartTelemBtn, "Iniciar telemetria", bg=COLOR_NO_DISPONIBLE)
+        _habilitarBtn(StopTelemBtn, "Parar telemetria")
+    else:
+        _habilitarBtn(StartTelemBtn, "Iniciar telemetria")
+        _habilitarBtn(StopTelemBtn, "Parar telemetria")
 
 
 # ============================================================================
@@ -1353,6 +1361,7 @@ def _safe_round(value, ndigits=2, fallback="--"):
 
 def showTelemetryInfo(telemetry_info):
     """Actualiza las etiquetas de telemetria (thread-safe para Tk)."""
+    global altShowLbl, headingShowLbl, stateShowLbl, speedShowLbl, flightModeShowLbl, latShowLbl, lonShowLbl
 
     def _ui_update():
         if altShowLbl:
@@ -1364,7 +1373,11 @@ def showTelemetryInfo(telemetry_info):
             latShowLbl["text"] = _safe_round(telemetry_info.get("lat"), 6)
             lonShowLbl["text"] = _safe_round(telemetry_info.get("lon"), 6)
 
-            _set_state(telemetry_info.get("state", last_state))
+            # Evitar invocar a la logica pesada de Tkinter 4 veces por segundo si no ha cambiado.
+            new_state = telemetry_info.get("state")
+            if new_state and new_state != last_state:
+                _set_state(new_state)
+
             _update_map_drone_position(telemetry_info.get("lat"), telemetry_info.get("lon"))
 
     _ui_call(_ui_update)
@@ -1457,59 +1470,16 @@ def _requerir_controlador():
 
 
 def cmd_connect():
-    global global_connect_pending
     if not _requerir_controlador():
         return
 
-    if _es_local():
-        _procesoBtn(connectBtn, "Conectando...")
-
-        def _do():
-            ok = controller.connect()
-
-            def _ui_update():
-                if ok:
-                    speedSldr.set(1)
-                    _set_state("connected")
-                else:
-                    _set_state("disconnected")
-                    messagebox.showwarning("Conexion", "No se pudo conectar o ya estaba conectado.")
-
-            _ui_call(_ui_update)
-
-        threading.Thread(target=_do, daemon=True).start()
+    _ui_call(lambda: targetInfoLbl.config(text="Conectando..."))
+    ok = controller.connect()
+    if ok:
+        _set_state("connected")
+        _ui_call(lambda: targetInfoLbl.config(text="Dron conectado"))
     else:
-        if global_connect_pending:
-            return
-
-        global_connect_pending = True
-        _procesoBtn(connectBtn, "Conectando...")
-        speedSldr.set(1)
-
-        def _attempt_global_connect():
-            global global_connect_pending
-            max_attempts = 8
-            for _ in range(max_attempts):
-                if not global_connect_pending or last_state == "connected":
-                    return
-                if isinstance(controller, GlobalController):
-                    controller.connect()
-                time.sleep(1.0)
-
-            if global_connect_pending and last_state != "connected":
-                global_connect_pending = False
-
-                def _ui_timeout():
-                    messagebox.showwarning(
-                        "Conexion Global",
-                        "No hubo respuesta de conexion del AutopilotService.\n"
-                        "Verifica que esta ejecutandose y suscrito al broker MQTT.",
-                    )
-                    actualizarBotonesSegunEstado()
-
-                _ui_call(_ui_timeout)
-
-        threading.Thread(target=_attempt_global_connect, daemon=True).start()
+        messagebox.showerror("Error", "No se pudo conectar (revisa consola o modo).")
 
 
 def cmd_disconnect():
@@ -1673,6 +1643,7 @@ def cmd_go(direction, btn):
 
 
 def cmd_start_telem():
+    print("Iniciando telemtria...")
     if not _requerir_controlador():
         return
 
@@ -1680,12 +1651,16 @@ def cmd_start_telem():
         controller.start_telemetry(showTelemetryInfo)
     else:
         controller.start_telemetry()
+    _ui_call(lambda: _habilitarBtn(StopTelemBtn))
+    _ui_call(lambda: _deshabilitarBtn(StartTelemBtn))
 
 
 def cmd_stop_telem():
     if not _requerir_controlador():
         return
     controller.stop_telemetry()
+    _ui_call(lambda: _habilitarBtn(StartTelemBtn))
+    _ui_call(lambda: _deshabilitarBtn(StopTelemBtn))
 
 
 def cmd_change_heading(event):
@@ -1855,24 +1830,19 @@ def cmd_iniciar(modo_var, iniciarBtn, modoFrame):
             camera_service_manager = CameraServiceManager(_status_camara)
         cam_ok = True
 
-        if autopilot_service_manager is None:
-            autopilot_service_manager = AutopilotServiceManager(_status_autopilot)
-        auto_ok = autopilot_service_manager.start(show_console=False)
-
         modoLbl["text"] = "Modo: LOCAL (control directo al dron)"
         modoLbl["fg"] = "darkgreen"
-        if cam_ok and auto_ok:
+        if cam_ok:
             messagebox.showinfo(
                 "Modo Local activado",
                 "Servicios locales activados.\n\n"
-                "AutopilotService se inicia automaticamente.\n"
-                "CameraService se inicia al pulsar 'Iniciar camara'.",
+                "Control directo iniciado.\n"
+                "CameraService se inicia al pulsar 'Iniciar cámara'.",
             )
         else:
             messagebox.showwarning(
                 "Modo Local activado",
                 "No se pudieron iniciar todos los servicios locales.\n"
-                f"AutopilotService: {'OK' if auto_ok else 'FALLO'}\n"
                 f"CameraService: {'OK' if cam_ok else 'FALLO'}",
             )
     else:

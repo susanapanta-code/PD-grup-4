@@ -9,8 +9,8 @@ from dronLink.Dron import Dron
 
 # ---- Configuración de conexión ----
 # Para conectar con el simulador SITL:
-connection_str = 'udp:127.0.0.1:14552'
-baudios = 57600
+connection_str = 'tcp:127.0.0.1:5763'
+baudios = 115200
 
 # Para conectar con la radio de telemetría (descomentar y ajustar puerto):
 # connection_str = 'COM14'

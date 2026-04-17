@@ -78,6 +78,7 @@ def on_message(cli, userdata, message):
         else:
             #connection_string = 'COM14'
             connection_string = 'tcp:127.0.0.1:5763'
+            #connection_string = 'udp:127.0.0.1:14551'
             #baud = 57600
             baud = 115200
             print('Conectando al dron...')
