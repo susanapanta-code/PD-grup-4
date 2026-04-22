@@ -26,7 +26,7 @@ ROOT = os.path.dirname(__file__)
 
 HOST = "0.0.0.0"
 PORT = 9999
-CAMERA_ID = 0
+CAMERA_ID = 1
 TARGET_FPS = 20
 
 
@@ -56,6 +56,9 @@ class OpenCVCameraTrack(VideoStreamTrack):
         now = time.time()
         delta = now - self._last_frame_ts
         if delta < self._frame_period_s:
+
+
+
             await asyncio.sleep(self._frame_period_s - delta)
 
         pts, time_base = await self.next_timestamp()

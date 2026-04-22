@@ -184,7 +184,7 @@ def http_telemetry():
 
 @app.route("/")
 def index():
-    return send_from_directory("templates", "indexHTTP.html")
+    return send_from_directory("../templates", "indexHTTP.html")
 
 
 # ===================== Main =====================

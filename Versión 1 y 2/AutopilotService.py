@@ -77,10 +77,10 @@ def on_message(cli, userdata, message):
             dron.send_telemetry_info(publish_telemetry)
         else:
             #connection_string = 'COM14'
-            connection_string = 'tcp:127.0.0.1:5763'
-            #connection_string = 'udp:127.0.0.1:14551'
-            #baud = 57600
-            baud = 115200
+            #connection_string = 'tcp:127.0.0.1:5763'
+            connection_string = 'udp:127.0.0.1:14551'
+            baud = 57600
+            #baud = 115200
             print('Conectando al dron...')
             # Ejecutar en hilo aparte para NO bloquear el loop MQTT
             
@@ -386,11 +386,16 @@ def on_connect(client, userdata, flags, reason_code, properties):
 
 dron = Dron()
 
-client = mqtt.Client(CallbackAPIVersion.VERSION2, "autopilotService04", transport="tcp")
+client = mqtt.Client(CallbackAPIVersion.VERSION2, "autopilotService04", transport="websockets")
 
 # Usar broker test.mosquitto.org público
-broker_address = "test.mosquitto.org"
-broker_port = 1883
+# broker_address = "test.mosquitto.org"
+# broker_port = 1883
+
+# Broker de la universidad dronsEETAC
+broker_address = "dronseetac.upc.edu"
+broker_port = 8000  # WebSockets
+client.username_pw_set("dronsEETAC", "mimara1456.")
 
 client.on_message = on_message
 client.on_connect = on_connect
@@ -398,4 +403,3 @@ client.connect(broker_address, broker_port)
 
 print('AutopilotServiceDemo esperando peticiones')
 client.loop_forever()
-

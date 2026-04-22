@@ -70,8 +70,8 @@ MQTT_CLIENT_ID = "InterfazGlobalV2"
 MQTT_ORIGIN_PREFIX = "interfazGlobalV2"
 MQTT_SERVICE_NAME = "autopilotService04"
 # Conexion local por defecto (modo Local)
-LOCAL_CONNECTION_STRING = "tcp:127.0.0.1:5763"
-LOCAL_BAUD = 115200
+LOCAL_CONNECTION_STRING = "udp:127.0.0.1:14552"
+LOCAL_BAUD = 57600
 
 # WebRTC - servicio de camara (CameraService.py actua como servidor)
 CAMERA_SERVER_IP = "localhost"
