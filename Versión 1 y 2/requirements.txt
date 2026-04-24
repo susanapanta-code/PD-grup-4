@@ -1,6 +1,7 @@
 aiortc
 av
 opencv-python
+mediapipe
 paho-mqtt
 pymavlink
 tkintermapview
