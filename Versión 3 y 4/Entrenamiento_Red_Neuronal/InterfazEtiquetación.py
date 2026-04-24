@@ -3,12 +3,15 @@ import glob
 import os
 
 # ================= CONFIGURACION =================
-CARPETA_ENTRADA = "imagenes_entrada"
-CARPETA_SALIDA = "etiquetas_salida"
+CARPETA_BASE = "dataset"
+CARPETA_ENTRADA = os.path.join(CARPETA_BASE, "images")
+CARPETA_SALIDA = os.path.join(CARPETA_BASE, "labels")
 CLASE_DRON = 0
 EXTENSIONES = ("*.jpg", "*.jpeg", "*.png", "*.bmp", "*.webp")
 VENTANA = "Etiquetador de Drones (YOLO)"
 MIN_LADO_CAJA_PX = 4
+MAX_VIEW_WIDTH = 1600
+MAX_VIEW_HEIGHT = 900
 
 
 def clamp(valor, minimo, maximo):
@@ -62,6 +65,11 @@ class EtiquetadorYOLO:
         self.inicio = (0, 0)
         self.fin = (0, 0)
 
+        # Escala de visualizacion (la etiqueta siempre se guarda en resolucion original).
+        self.view_scale = 1.0
+        self.view_width = 0
+        self.view_height = 0
+
     def _listar_imagenes(self):
         rutas = []
         for ext in EXTENSIONES:
@@ -111,47 +119,78 @@ class EtiquetadorYOLO:
             pass
         return ruta_txt
 
+    def _update_view_scale(self):
+        scale_w = MAX_VIEW_WIDTH / self.ancho
+        scale_h = MAX_VIEW_HEIGHT / self.alto
+        self.view_scale = min(1.0, scale_w, scale_h)
+        self.view_width = max(1, int(self.ancho * self.view_scale))
+        self.view_height = max(1, int(self.alto * self.view_scale))
+
+    def _to_view_point(self, x, y):
+        vx = int(clamp(round(x * self.view_scale), 0, self.view_width - 1))
+        vy = int(clamp(round(y * self.view_scale), 0, self.view_height - 1))
+        return vx, vy
+
+    def _from_view_point(self, x, y):
+        if self.view_scale <= 0:
+            return 0, 0
+        ox = int(clamp(round(x / self.view_scale), 0, self.ancho - 1))
+        oy = int(clamp(round(y / self.view_scale), 0, self.alto - 1))
+        return ox, oy
+
     def _cargar_imagen_actual(self):
         ruta = self.imagenes[self.idx]
         self.img_base = cv2.imread(ruta)
         if self.img_base is None:
             raise RuntimeError(f"No se pudo abrir la imagen: {ruta}")
         self.alto, self.ancho = self.img_base.shape[:2]
+        self._update_view_scale()
         self.cajas = self._cargar_etiquetas_existentes(self._ruta_txt_actual())
+        cv2.resizeWindow(VENTANA, self.view_width, self.view_height)
 
     def _dibujar_hud(self, canvas):
         total = len(self.imagenes)
         nombre = os.path.basename(self.imagenes[self.idx])
         linea1 = f"Imagen {self.idx + 1}/{total}: {nombre}"
         linea2 = "s=guardar | n=negativa | u=deshacer | c=limpiar | a=anterior | d=siguiente | q=salir"
-        linea3 = f"Cajas actuales: {len(self.cajas)}"
+        linea3 = f"Cajas actuales: {len(self.cajas)} | Escala vista: {self.view_scale:.2f}x"
 
-        cv2.rectangle(canvas, (0, 0), (self.ancho, 72), (20, 20, 20), -1)
+        cv2.rectangle(canvas, (0, 0), (self.view_width, 72), (20, 20, 20), -1)
         cv2.putText(canvas, linea1, (10, 22), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (255, 255, 255), 1, cv2.LINE_AA)
         cv2.putText(canvas, linea2, (10, 44), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (180, 230, 255), 1, cv2.LINE_AA)
         cv2.putText(canvas, linea3, (10, 66), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (120, 255, 120), 1, cv2.LINE_AA)
 
     def _redibujar(self):
-        self.img = self.img_base.copy()
+        if self.view_scale < 1.0:
+            self.img = cv2.resize(self.img_base, (self.view_width, self.view_height), interpolation=cv2.INTER_AREA)
+        else:
+            self.img = self.img_base.copy()
+
         for i, (x1, y1, x2, y2) in enumerate(self.cajas, start=1):
-            cv2.rectangle(self.img, (x1, y1), (x2, y2), (0, 220, 0), 2)
-            cv2.putText(self.img, f"dron {i}", (x1, max(15, y1 - 6)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 220, 0), 1, cv2.LINE_AA)
+            vx1, vy1 = self._to_view_point(x1, y1)
+            vx2, vy2 = self._to_view_point(x2, y2)
+            cv2.rectangle(self.img, (vx1, vy1), (vx2, vy2), (0, 220, 0), 2)
+            cv2.putText(self.img, f"dron {i}", (vx1, max(15, vy1 - 6)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 220, 0), 1, cv2.LINE_AA)
 
         if self.dibujando:
-            cv2.rectangle(self.img, self.inicio, self.fin, (0, 255, 255), 1)
+            v_inicio = self._to_view_point(*self.inicio)
+            v_fin = self._to_view_point(*self.fin)
+            cv2.rectangle(self.img, v_inicio, v_fin, (0, 255, 255), 1)
 
         self._dibujar_hud(self.img)
 
     def _mouse(self, event, x, y, _flags, _param):
+        ox, oy = self._from_view_point(x, y)
+
         if event == cv2.EVENT_LBUTTONDOWN:
             self.dibujando = True
-            self.inicio = (x, y)
-            self.fin = (x, y)
+            self.inicio = (ox, oy)
+            self.fin = (ox, oy)
         elif event == cv2.EVENT_MOUSEMOVE and self.dibujando:
-            self.fin = (x, y)
+            self.fin = (ox, oy)
         elif event == cv2.EVENT_LBUTTONUP and self.dibujando:
             self.dibujando = False
-            self.fin = (x, y)
+            self.fin = (ox, oy)
             x1, y1 = self.inicio
             x2, y2 = self.fin
             if normalizar_caja(x1, y1, x2, y2, self.ancho, self.alto) is not None:
@@ -160,7 +199,7 @@ class EtiquetadorYOLO:
                 self.cajas.append((x1, y1, x2, y2))
 
     def run(self):
-        cv2.namedWindow(VENTANA)
+        cv2.namedWindow(VENTANA, cv2.WINDOW_NORMAL)
         cv2.setMouseCallback(VENTANA, self._mouse)
 
         print("--- INSTRUCCIONES ---")

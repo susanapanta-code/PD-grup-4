@@ -1,0 +1,10 @@
+# Dataset base (distribucion simple)
+path: ./dataset
+
+# Sin split: train y val apuntan a la misma carpeta de imagenes.
+train: images
+val: images
+
+# Clases
+nc: 1
+names: ["dron"]

@@ -14,3 +14,9 @@ venv/
 # IDEs
 .idea/
 .vscode/
+
+# Entrenamiento YOLO
+Versión 3 y 4/Entrenamiento_Red_Neuronal/dataset/
+Versión 3 y 4/Entrenamiento_Red_Neuronal/runs/
+Versión 3 y 4/Entrenamiento_Red_Neuronal/*.pt
+
