@@ -7,13 +7,15 @@ from ultralytics import YOLO
 
 
 def parse_args() -> argparse.Namespace:
+    import torch
+    default_device = "0" if torch.cuda.is_available() else "cpu"
     parser = argparse.ArgumentParser(description="Entrenamiento YOLO profesional para deteccion de dron")
     parser.add_argument("--model", default="yolov8n.pt", help="Checkpoint base de YOLO")
     parser.add_argument("--data", default="data.yaml", help="Archivo YAML del dataset")
     parser.add_argument("--epochs", type=int, default=100)
     parser.add_argument("--imgsz", type=int, default=640)
     parser.add_argument("--batch", type=int, default=8)
-    parser.add_argument("--device", default="cpu", help="cpu, 0, 0,1...")
+    parser.add_argument("--device", default=default_device, help="cpu, 0, 0,1...")
     parser.add_argument("--workers", type=int, default=2)
     parser.add_argument("--patience", type=int, default=20)
     parser.add_argument("--seed", type=int, default=42)
@@ -54,6 +56,8 @@ def validar_dataset_simple(dataset_dir: Path) -> None:
 
 
 def main() -> None:
+    from multiprocessing import freeze_support
+    freeze_support()
     args = parse_args()
     base_dir = Path(__file__).resolve().parent
     dataset_dir = base_dir / "dataset"
