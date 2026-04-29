@@ -8,6 +8,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description="Detección en tiempo real usando el modelo entrenado")
     parser.add_argument("--model", default="runs/dron_yolov8n/weights/best.pt", help="Ruta al modelo entrenado (ej. best.pt)")
     parser.add_argument("--source", default="http://10.154.255.106:8080/video", help="Fuente de video (0 para webcam, URL para cámara web o ruta a archivo)")
+    # parser.add_argument("--source", default="0", help="Fuente de video (0 para webcam, URL para cámara web o ruta a archivo)")
     parser.add_argument("--conf", type=float, default=0.5, help="Nivel de confianza mínimo para mostrar detecciones")
     return parser.parse_args()
 
