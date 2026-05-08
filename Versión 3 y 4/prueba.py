@@ -1,3 +1,5 @@
+#seguir
+
 from dronLink.Dron import Dron
 import time
 import math
@@ -44,15 +46,18 @@ class PIDController:
 # CONFIG
 # =========================
 
-# ⚠️ CAMBIAR IPs SEGÚN VUESTRA RED
+# ABRIENDO 2 INSTANCIAS DE SITL EN EL MISMO ORDENADOR:
 LEADER_CONNECTION = "tcp:127.0.0.1:5763"
-FOLLOWER_CONNECTION = "udp:0.0.0.0:14551"
+FOLLOWER_CONNECTION = "tcp:127.0.0.1:5773"
 BAUDIOS = 115200
 
-DESIRED_DISTANCE = 5  # metros
+DESIRED_DISTANCE = 18  # metros
 
 # Tiempo máximo sin recibir telemetría del líder antes de parar el follower (segundos)
 MAX_TELEMETRY_AGE = 2.0
+
+# Altitud por debajo de la cual consideramos que el líder está aterrizando (metros)
+LANDING_ALT_THRESHOLD = 1.0
 
 # Frecuencia del loop de control (Hz) y periodo correspondiente (segundos)
 LOOP_HZ = 20
@@ -108,8 +113,8 @@ time.sleep(2)
 # PID
 # =========================
 
-pid_x = PIDController(0.4, 0.0, 0.15)
-pid_y = PIDController(0.4, 0.0, 0.15)
+pid_x = PIDController(0.2, 0.0, 0.15)
+pid_y = PIDController(0.2, 0.0, 0.15)
 pid_z = PIDController(0.6, 0.0, 0.2)
 
 # =========================
@@ -198,6 +203,25 @@ while True:
         continue
 
     # =========================
+    # DETECCIÓN DE ATERRIZAJE DEL LÍDER
+    # Si el líder está en modo LAND o RTL y su altitud es menor que el umbral,
+    # ordenamos al follower que aterrice y salimos del loop
+    # =========================
+    leader_mode = leader_telemetry.get('flightMode', '')
+    leader_state = leader_telemetry.get('state', '')
+
+    if leader_mode in ('LAND', 'RTL') and leader_alt < LANDING_ALT_THRESHOLD:
+        print(f"Líder aterrizando (modo: {leader_mode}, alt: {leader_alt:.2f} m). El follower inicia aterrizaje.")
+        follower.Land()
+        break
+
+    # Si el líder ya está en tierra (desarmado), también aterrizamos
+    if leader_state in ('disarmed', 'connected'):
+        print(f"Líder desarmado (estado: {leader_state}). El follower inicia aterrizaje.")
+        follower.Land()
+        break
+
+    # =========================
     # ERROR (en metros)
     # =========================
     dist_east, dist_north = to_meters(follower_lat, follower_lon, leader_lat, leader_lon)
@@ -229,7 +253,7 @@ while True:
     # =========================
     # DEBUG
     # =========================
-    print(f"Dist: {distance:.2f} m | v_north:{v_north:.2f} v_east:{v_east:.2f} vz:{vz:.2f}")
+    print(f"Dist: {distance:.2f} m | v_north:{v_north:.2f} v_east:{v_east:.2f} vz:{vz:.2f} | leader_mode:{leader_mode} leader_alt:{leader_alt:.2f}")
 
     # Dormimos el tiempo restante del periodo para mantener el loop a LOOP_HZ Hz
     elapsed = time.time() - t_start
