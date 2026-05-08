@@ -49,9 +49,10 @@ class PIDController:
 # =========================
 
 # ABRIENDO 2 INSTANCIAS DE SITL EN EL MISMO ORDENADOR:
-LEADER_CONNECTION   = "tcp:127.0.0.1:5763"
-FOLLOWER_CONNECTION = "tcp:127.0.0.1:5773"
-BAUDIOS = 115200
+LEADER_CONNECTION   = "udp:127.0.0.1:14551"
+FOLLOWER_CONNECTION = "udp:127.0.0.1:14561"
+BAUDIOS = 57600
+
 
 # Coordenadas NOROESTE de ambas geofences para calcular la traslación
 # REEMPLAZA las coordenadas del líder con el punto noroeste de tu foto
