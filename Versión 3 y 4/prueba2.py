@@ -82,6 +82,12 @@ LANDING_ALT_THRESHOLD = 1.0
 LOOP_HZ = 20
 LOOP_DT = 1.0 / LOOP_HZ
 
+# Altitud de despegue por defecto para la botonera (metros)
+DEFAULT_TAKEOFF_ALT = 5.0
+
+# Umbral para considerar que el dron esta en el aire (metros)
+AIRBORNE_ALT_THRESHOLD = 1.0
+
 # =========================
 # CONEXIÓN
 # =========================
@@ -90,19 +96,9 @@ leader   = Dron()
 follower = Dron()
 print("Instancias creadas.")
 
-print("Conectando al líder...")
-if leader.connect(connection_string=LEADER_CONNECTION, baud=BAUDIOS):
-    print("Líder conectado.")
-else:
-    print("Error al conectar con el líder.")
-    exit(1)
-
-print("Conectando al seguidor...")
-if follower.connect(connection_string=FOLLOWER_CONNECTION, baud=BAUDIOS):
-    print("Seguidor conectado.")
-else:
-    print("Error al conectar con el seguidor.")
-    exit(1)
+leader_connected = threading.Event()
+follower_connected = threading.Event()
+telemetry_ready = threading.Event()
 
 # Pequeña pausa para asegurar que la telemetría inicial se recibe
 time.sleep(2)
@@ -123,11 +119,14 @@ def on_follower_telemetry(info):
     follower_telemetry.update(info)
 
 
-leader.send_telemetry_info(on_leader_telemetry)
-follower.send_telemetry_info(on_follower_telemetry)
+def start_telemetry():
+    if telemetry_ready.is_set():
+        return
+    leader.send_telemetry_info(on_leader_telemetry)
+    follower.send_telemetry_info(on_follower_telemetry)
+    telemetry_ready.set()
+    print("Telemetría activada.")
 
-print("Telemetría activada. Esperando primeros datos...")
-time.sleep(2)
 
 # =========================
 # PID
@@ -137,14 +136,34 @@ pid_x = PIDController(0.2, 0.0, 0.15)
 pid_y = PIDController(0.2, 0.0, 0.15)
 pid_z = PIDController(0.6, 0.0, 0.2)
 
-# '''
 # =========================
-# INTERFAZ GRÁFICA PARA TUNING PID
+# CONTROL DE FLUJO (GUI/SEGUIMIENTO)
+# =========================
+follow_requested = threading.Event()
+follow_enabled = threading.Event()
+
+
+def is_airborne(telemetry_dict):
+    alt = telemetry_dict.get('alt', 0.0)
+    state = telemetry_dict.get('state', '')
+    return alt >= AIRBORNE_ALT_THRESHOLD or state in ('flying', 'returning', 'landing')
+
+
+def both_airborne():
+    return is_airborne(leader_telemetry) and is_airborne(follower_telemetry)
+
+
+# =========================
+# INTERFAZ GRAFICA PARA TUNING PID + CONTROL DE VUELO
 # =========================
 def create_gui():
     root = tk.Tk()
-    root.title("Tuning PID")
-    root.geometry("350x450")
+    root.title("Control PID y Seguimiento")
+    root.geometry("380x620")
+
+    status_var = tk.StringVar(value="Seguimiento: OFF")
+    connection_var = tk.StringVar(value="Conexión: esperando")
+    takeoff_alt_var = tk.DoubleVar(value=DEFAULT_TAKEOFF_ALT)
 
     def update_pids_xy(val):
         pid_x.kp = pid_y.kp = float(slider_kp_xy.get())
@@ -155,6 +174,113 @@ def create_gui():
         pid_z.kp = float(slider_kp_z.get())
         pid_z.ki = float(slider_ki_z.get())
         pid_z.kd = float(slider_kd_z.get())
+
+    def _connect_leader():
+        if leader_connected.is_set():
+            return
+        print("Conectando al líder...")
+        ok = leader.connect(connection_string=LEADER_CONNECTION, baud=BAUDIOS)
+        if ok:
+            leader_connected.set()
+            print("Líder conectado.")
+        else:
+            print("Error al conectar con el líder.")
+
+    def _connect_follower():
+        if follower_connected.is_set():
+            return
+        print("Conectando al seguidor...")
+        ok = follower.connect(connection_string=FOLLOWER_CONNECTION, baud=BAUDIOS)
+        if ok:
+            follower_connected.set()
+            print("Seguidor conectado.")
+        else:
+            print("Error al conectar con el seguidor.")
+
+    def connect_leader():
+        threading.Thread(target=_connect_leader, daemon=True).start()
+
+    def connect_follower():
+        threading.Thread(target=_connect_follower, daemon=True).start()
+
+    def connect_both():
+        connect_leader()
+        connect_follower()
+
+    def _start_telemetry_safe():
+        if not (leader_connected.is_set() and follower_connected.is_set()):
+            print("Conecta ambos drones antes de activar telemetría.")
+            return
+        start_telemetry()
+
+    def start_telemetry_button():
+        threading.Thread(target=_start_telemetry_safe, daemon=True).start()
+
+    def _arm_both():
+        try:
+            leader.arm()
+            follower.arm()
+        except Exception as e:
+            print(f"Error armando drones: {e}")
+
+    def _takeoff_both():
+        try:
+            alt = float(takeoff_alt_var.get())
+            leader.takeOff(alt)
+            follower.takeOff(alt)
+        except Exception as e:
+            print(f"Error despegando drones: {e}")
+
+    def arm_both():
+        threading.Thread(target=_arm_both, daemon=True).start()
+
+    def takeoff_both():
+        threading.Thread(target=_takeoff_both, daemon=True).start()
+
+    def request_follow():
+        follow_requested.set()
+        if both_airborne():
+            follow_enabled.set()
+            status_var.set("Seguimiento: ON")
+        else:
+            status_var.set("Seguimiento: esperando despegue")
+
+    def stop_follow():
+        follow_requested.clear()
+        follow_enabled.clear()
+        status_var.set("Seguimiento: OFF")
+        send_movement_command(follower, 0, 0, 0)
+
+    def refresh_status():
+        if leader_connected.is_set() and follower_connected.is_set():
+            connection_var.set("Conexión: lista")
+        elif leader_connected.is_set() or follower_connected.is_set():
+            connection_var.set("Conexión: parcial")
+        else:
+            connection_var.set("Conexión: esperando")
+
+        if follow_requested.is_set() and not follow_enabled.is_set() and both_airborne():
+            follow_enabled.set()
+            status_var.set("Seguimiento: ON")
+        root.after(500, refresh_status)
+
+    control_frame = tk.LabelFrame(root, text="Control de vuelo")
+    control_frame.pack(fill="x", padx=10, pady=8)
+
+    tk.Label(control_frame, textvariable=connection_var).pack(pady=2)
+    tk.Button(control_frame, text="Conectar líder", command=connect_leader).pack(fill="x", padx=10, pady=2)
+    tk.Button(control_frame, text="Conectar seguidor", command=connect_follower).pack(fill="x", padx=10, pady=2)
+    tk.Button(control_frame, text="Conectar ambos", command=connect_both).pack(fill="x", padx=10, pady=2)
+    tk.Button(control_frame, text="Activar telemetría", command=start_telemetry_button).pack(fill="x", padx=10, pady=3)
+
+    tk.Label(control_frame, text="Altitud despegue (m)").pack(pady=2)
+    tk.Scale(control_frame, from_=1.0, to=20.0, resolution=0.5, orient="horizontal", variable=takeoff_alt_var).pack(fill="x", padx=10)
+
+    tk.Button(control_frame, text="Armar ambos", command=arm_both).pack(fill="x", padx=10, pady=3)
+    tk.Button(control_frame, text="Despegar ambos", command=takeoff_both).pack(fill="x", padx=10, pady=3)
+    tk.Button(control_frame, text="Activar seguimiento", command=request_follow).pack(fill="x", padx=10, pady=3)
+    tk.Button(control_frame, text="Parar seguimiento", command=stop_follow).pack(fill="x", padx=10, pady=3)
+    tk.Label(control_frame, textvariable=status_var).pack(pady=4)
 
     tk.Label(root, text="Ajuste PID (Ejes X e Y)").pack(pady=5)
     slider_kp_xy = tk.Scale(root, label="Kp XY", from_=0.0, to=2.0, resolution=0.01, orient="horizontal", command=update_pids_xy)
@@ -182,12 +308,12 @@ def create_gui():
     slider_kd_z.set(pid_z.kd)
     slider_kd_z.pack(fill="x", padx=10)
 
+    refresh_status()
     root.mainloop()
 
 # Lanzamos la interfaz en un hilo separado para que no pause el bucle del dron
 gui_thread = threading.Thread(target=create_gui, daemon=True)
 gui_thread.start()
-# '''
 
 # =========================
 # FUNCIONES AUX
@@ -243,6 +369,10 @@ def send_movement_command(dron, v_north, v_east, vz):
 # =========================
 # ESPERAR TELEMETRÍA VÁLIDA
 # =========================
+
+print("Esperando a que el usuario conecte y active telemetría...")
+while not telemetry_ready.is_set():
+    time.sleep(0.2)
 
 print("Esperando recepción de telemetría...")
 while True:
@@ -324,9 +454,13 @@ last_valid_leader_time = time.time()
 while True:
     t_start = time.time()
 
+    if not follow_enabled.is_set():
+        time.sleep(0.1)
+        continue
+
     try:
         leader_lat, leader_lon, leader_alt = get_position_from_telemetry(leader_telemetry)
-        # Telemetría del líder válida: actualizamos el timestamp
+        # Telemetria del lider valida: actualizamos el timestamp
         last_valid_leader_time = time.time()
     except TimeoutError:
         # Si llevamos demasiado tiempo sin telemetría del líder, paramos el follower por seguridad
@@ -346,21 +480,21 @@ while True:
         continue
 
     # =========================
-    # DETECCIÓN DE ATERRIZAJE DEL LÍDER
-    # Si el líder está en modo LAND o RTL y su altitud es menor que el umbral,
+    # DETECCION DE ATERRIZAJE DEL LIDER
+    # Si el lider esta en modo LAND o RTL y su altitud es menor que el umbral,
     # ordenamos al follower que aterrice y salimos del loop
     # =========================
     leader_mode  = leader_telemetry.get('flightMode', '')
     leader_state = leader_telemetry.get('state', '')
 
     if leader_mode in ('LAND', 'RTL') and leader_alt < LANDING_ALT_THRESHOLD:
-        print(f"Líder aterrizando (modo: {leader_mode}, alt: {leader_alt:.2f} m). El follower inicia aterrizaje.")
+        print(f"Lider aterrizando (modo: {leader_mode}, alt: {leader_alt:.2f} m). El follower inicia aterrizaje.")
         follower.Land()
         break
 
-    # Si el líder ya está en tierra (desarmado), también aterrizamos
-    if leader_state in ('disarmed', 'connected'):
-        print(f"Líder desarmado (estado: {leader_state}). El follower inicia aterrizaje.")
+    # Si el lider ya esta en tierra (desarmado), tambien aterrizamos
+    if leader_state == 'disarmed' and leader_alt < AIRBORNE_ALT_THRESHOLD:
+        print(f"Lider desarmado (estado: {leader_state}). El follower inicia aterrizaje.")
         follower.Land()
         break
 
