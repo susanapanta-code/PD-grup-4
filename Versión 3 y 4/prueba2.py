@@ -49,9 +49,12 @@ class PIDController:
 # =========================
 
 # ABRIENDO 2 INSTANCIAS DE SITL EN EL MISMO ORDENADOR:
-LEADER_CONNECTION   = "udp:127.0.0.1:14551"
-FOLLOWER_CONNECTION = "udp:127.0.0.1:14561"
-BAUDIOS = 57600
+#LEADER_CONNECTION   = "udp:127.0.0.1:14551"
+LEADER_CONNECTION   = "tcp:127.0.0.1:5762"
+#FOLLOWER_CONNECTION = "udp:127.0.0.1:14561"
+FOLLOWER_CONNECTION = "tcp:127.0.0.1:5772"
+#BAUDIOS = 57600
+BAUDIOS = 115200
 
 
 # Coordenadas NOROESTE de ambas geofences para calcular la traslación
@@ -100,9 +103,6 @@ leader_connected = threading.Event()
 follower_connected = threading.Event()
 telemetry_ready = threading.Event()
 
-# Pequeña pausa para asegurar que la telemetría inicial se recibe
-time.sleep(2)
-
 # =========================
 # ACTIVAR TELEMETRÍA
 # =========================
@@ -141,6 +141,7 @@ pid_z = PIDController(0.6, 0.0, 0.2)
 # =========================
 follow_requested = threading.Event()
 follow_enabled = threading.Event()
+initial_position_checked = threading.Event()
 
 
 def is_airborne(telemetry_dict):
@@ -151,6 +152,22 @@ def is_airborne(telemetry_dict):
 
 def both_airborne():
     return is_airborne(leader_telemetry) and is_airborne(follower_telemetry)
+
+
+# =========================
+# FUNCIONES DE CONTROL DE SEGUIMIENTO
+# =========================
+
+def stop_follow(status_var=None):
+    """Para el seguimiento, resetea los flags y detiene el movimiento del follower."""
+    follow_requested.clear()
+    follow_enabled.clear()
+    initial_position_checked.clear()
+    if status_var:
+        status_var.set("Seguimiento: OFF")
+    print("\nSeguimiento detenido.")
+    # Enviamos un comando para que el dron se quede quieto (hover)
+    send_movement_command(follower, 0, 0, 0)
 
 
 # =========================
@@ -179,22 +196,22 @@ def create_gui():
         if leader_connected.is_set():
             return
         print("Conectando al líder...")
-        ok = leader.connect(connection_string=LEADER_CONNECTION, baud=BAUDIOS)
-        if ok:
+        def on_leader_connected():
             leader_connected.set()
             print("Líder conectado.")
-        else:
+        ok = leader.connect(connection_string=LEADER_CONNECTION, baud=BAUDIOS, blocking=False, callback=on_leader_connected)
+        if not ok:
             print("Error al conectar con el líder.")
 
     def _connect_follower():
         if follower_connected.is_set():
             return
         print("Conectando al seguidor...")
-        ok = follower.connect(connection_string=FOLLOWER_CONNECTION, baud=BAUDIOS)
-        if ok:
+        def on_follower_connected():
             follower_connected.set()
             print("Seguidor conectado.")
-        else:
+        ok = follower.connect(connection_string=FOLLOWER_CONNECTION, baud=BAUDIOS, blocking=False, callback=on_follower_connected)
+        if not ok:
             print("Error al conectar con el seguidor.")
 
     def connect_leader():
@@ -238,18 +255,18 @@ def create_gui():
         threading.Thread(target=_takeoff_both, daemon=True).start()
 
     def request_follow():
-        follow_requested.set()
-        if both_airborne():
-            follow_enabled.set()
-            status_var.set("Seguimiento: ON")
-        else:
-            status_var.set("Seguimiento: esperando despegue")
+        if not (telemetry_ready.is_set() and both_airborne()):
+            print("ERROR: Ambos drones deben estar conectados, con telemetría y en el aire para iniciar el seguimiento.")
+            status_var.set("Seguimiento: ¡Error! Despega primero.")
+            return
 
-    def stop_follow():
-        follow_requested.clear()
-        follow_enabled.clear()
-        status_var.set("Seguimiento: OFF")
-        send_movement_command(follower, 0, 0, 0)
+        follow_requested.set()
+        status_var.set("Seguimiento: iniciando...")
+
+
+    def stop_follow_button():
+        # Llama a la función global stop_follow, pasándole la variable de estado de la GUI
+        stop_follow(status_var)
 
     def refresh_status():
         if leader_connected.is_set() and follower_connected.is_set():
@@ -259,9 +276,11 @@ def create_gui():
         else:
             connection_var.set("Conexión: esperando")
 
-        if follow_requested.is_set() and not follow_enabled.is_set() and both_airborne():
-            follow_enabled.set()
-            status_var.set("Seguimiento: ON")
+        if follow_enabled.is_set():
+             status_var.set("Seguimiento: ON")
+        elif follow_requested.is_set():
+             status_var.set("Seguimiento: calibrando...")
+
         root.after(500, refresh_status)
 
     control_frame = tk.LabelFrame(root, text="Control de vuelo")
@@ -279,7 +298,7 @@ def create_gui():
     tk.Button(control_frame, text="Armar ambos", command=arm_both).pack(fill="x", padx=10, pady=3)
     tk.Button(control_frame, text="Despegar ambos", command=takeoff_both).pack(fill="x", padx=10, pady=3)
     tk.Button(control_frame, text="Activar seguimiento", command=request_follow).pack(fill="x", padx=10, pady=3)
-    tk.Button(control_frame, text="Parar seguimiento", command=stop_follow).pack(fill="x", padx=10, pady=3)
+    tk.Button(control_frame, text="Parar seguimiento", command=stop_follow_button).pack(fill="x", padx=10, pady=3)
     tk.Label(control_frame, textvariable=status_var).pack(pady=4)
 
     tk.Label(root, text="Ajuste PID (Ejes X e Y)").pack(pady=5)
@@ -314,6 +333,8 @@ def create_gui():
 # Lanzamos la interfaz en un hilo separado para que no pause el bucle del dron
 gui_thread = threading.Thread(target=create_gui, daemon=True)
 gui_thread.start()
+print("Dashboard abierto. Pulsa los botones para conectar y activar telemetría.")
+print("Mientras tanto, el script esperará a que completes estas acciones...\n")
 
 # =========================
 # FUNCIONES AUX
@@ -367,85 +388,32 @@ def send_movement_command(dron, v_north, v_east, vz):
 
 
 # =========================
-# ESPERAR TELEMETRÍA VÁLIDA
+# ESPERAR ACCIONES DEL USUARIO
 # =========================
 
-print("Esperando a que el usuario conecte y active telemetría...")
-while not telemetry_ready.is_set():
-    time.sleep(0.2)
+print("Esperando a que el usuario conecte ambos drones...")
+leader_connected.wait()
+follower_connected.wait()
 
-print("Esperando recepción de telemetría...")
+print("Esperando a que el usuario active telemetría...")
+telemetry_ready.wait()
+
+print("Esperando recepción de telemetría inicial...")
 while True:
     try:
         get_position_from_telemetry(leader_telemetry)
         get_position_from_telemetry(follower_telemetry)
+        print("Telemetría recibida. Listo para armar y despegar.")
         break
     except TimeoutError:
         time.sleep(0.5)
 
-# =========================
-# COMPROBACIÓN DE POSICIÓN INICIAL
-# =========================
+print("Esperando a que el usuario active el seguimiento...")
 
-leader_lat, leader_lon, leader_alt       = get_position_from_telemetry(leader_telemetry)
-follower_lat, follower_lon, follower_alt = get_position_from_telemetry(follower_telemetry)
-
-# El punto de referencia del líder es donde está ahora mismo
-LEADER_REF_LAT = leader_lat
-LEADER_REF_LON = leader_lon
-
-# El punto de referencia del follower es la posición equivalente trasladada
-FOLLOWER_REF_LAT = LEADER_REF_LAT + OFFSET_LAT
-FOLLOWER_REF_LON = LEADER_REF_LON + OFFSET_LON
-
-dist_leader_to_ref   = 0.0 # El líder ya está en su propia referencia actual
-dist_follower_to_ref = distance_meters(follower_lat, follower_lon, FOLLOWER_REF_LAT, FOLLOWER_REF_LON)
-
-print(f"\n--- POSICIÓN INICIAL EQUIVALENTE ---")
-print(f"Líder en: lat={LEADER_REF_LAT:.7f}, lon={LEADER_REF_LON:.7f}")
-print(f"Objetivo Follower: lat={FOLLOWER_REF_LAT:.7f}, lon={FOLLOWER_REF_LON:.7f}")
-print(f"Distancia actual del follower al objetivo: {dist_follower_to_ref:.2f} m")
-
-# El follower se recoloca para emparejar la posición proporcional
-if dist_follower_to_ref > REF_TOLERANCE_M:
-    print(f"\n🔄 Moviendo FOLLOWER automáticamente al punto equivalente...")
-
-    follower.goto(FOLLOWER_REF_LAT, FOLLOWER_REF_LON, follower_alt)
-
-    t_goto_start = time.time()
-    while True:
-        follower_lat, follower_lon, follower_alt = get_position_from_telemetry(follower_telemetry)
-        dist_now = distance_meters(follower_lat, follower_lon, FOLLOWER_REF_LAT, FOLLOWER_REF_LON)
-
-        print(f"   Distancia al punto de referencia: {dist_now:.2f} m", end='\r')
-
-        if dist_now <= REF_TOLERANCE_M:
-            print(f"\n✅ Follower en su posición equivalente ({dist_now:.2f} m).")
-            break
-
-        if time.time() - t_goto_start > GOTO_TIMEOUT:
-            print(f"\n⚠️ Tiempo de espera excedido. Continuando...")
-            break
-
-        time.sleep(0.5)
-else:
-    print("✅ El follower ya se encuentra en la posición equivalente.")
-
-# =========================
-# CALIBRACIÓN DE ORÍGENES
-# Guardamos la posición actual de ambos drones como origen.
-# A partir de aquí el follower replicará el desplazamiento relativo
-# del líder respecto a su propio origen.
-# =========================
-
-leader_origin_lat,   leader_origin_lon,   leader_origin_alt   = get_position_from_telemetry(leader_telemetry)
-follower_origin_lat, follower_origin_lon, follower_origin_alt = get_position_from_telemetry(follower_telemetry)
-
-print(f"\nOrigen líder:    lat={leader_origin_lat:.7f}   lon={leader_origin_lon:.7f}   alt={leader_origin_alt:.2f} m")
-print(f"Origen follower: lat={follower_origin_lat:.7f} lon={follower_origin_lon:.7f} alt={follower_origin_alt:.2f} m")
-print("Orígenes calibrados. Iniciando replicado de movimiento.\n")
-
-last_valid_leader_time = time.time()
+# Variables de origen que se calibrarán después del despegue
+leader_origin_lat,   leader_origin_lon,   leader_origin_alt   = 0, 0, 0
+follower_origin_lat, follower_origin_lon, follower_origin_alt = 0, 0, 0
+last_valid_leader_time = 0
 
 # =========================
 # LOOP PRINCIPAL
@@ -454,19 +422,80 @@ last_valid_leader_time = time.time()
 while True:
     t_start = time.time()
 
+    # Si el seguimiento no está activado, no hacemos nada
+    if not follow_requested.is_set():
+        time.sleep(0.1)
+        continue
+
+    # --- INICIALIZACIÓN DEL SEGUIMIENTO (se ejecuta solo una vez) ---
+    if not initial_position_checked.is_set():
+        print("\n--- INICIANDO SECUENCIA DE SEGUIMIENTO ---")
+        # 1. Comprobar que ambos drones están en el aire
+        if not both_airborne():
+            print("Esperando a que ambos drones despeguen...")
+            time.sleep(0.5)
+            continue
+
+        # 2. COMPROBACIÓN DE POSICIÓN INICIAL
+        leader_lat, leader_lon, leader_alt       = get_position_from_telemetry(leader_telemetry)
+        follower_lat, follower_lon, follower_alt = get_position_from_telemetry(follower_telemetry)
+
+        LEADER_REF_LAT = leader_lat
+        LEADER_REF_LON = leader_lon
+        FOLLOWER_REF_LAT = LEADER_REF_LAT + OFFSET_LAT
+        FOLLOWER_REF_LON = LEADER_REF_LON + OFFSET_LON
+
+        dist_follower_to_ref = distance_meters(follower_lat, follower_lon, FOLLOWER_REF_LAT, FOLLOWER_REF_LON)
+
+        print(f"Objetivo Follower: lat={FOLLOWER_REF_LAT:.7f}, lon={FOLLOWER_REF_LON:.7f}")
+        print(f"Distancia actual del follower al objetivo: {dist_follower_to_ref:.2f} m")
+
+        # 3. Mover follower a su posición si es necesario
+        if dist_follower_to_ref > REF_TOLERANCE_M:
+            print(f"\n🔄 Moviendo FOLLOWER automáticamente al punto equivalente...")
+            follower.goto(FOLLOWER_REF_LAT, FOLLOWER_REF_LON, follower_alt, 2) # Velocidad de 2 m/s
+
+            t_goto_start = time.time()
+            while True:
+                follower_lat, follower_lon, _ = get_position_from_telemetry(follower_telemetry)
+                dist_now = distance_meters(follower_lat, follower_lon, FOLLOWER_REF_LAT, FOLLOWER_REF_LON)
+                print(f"   Distancia al punto de referencia: {dist_now:.2f} m", end='\r')
+                if dist_now <= REF_TOLERANCE_M:
+                    print(f"\n✅ Follower en su posición equivalente ({dist_now:.2f} m).")
+                    break
+                if time.time() - t_goto_start > GOTO_TIMEOUT:
+                    print(f"\n⚠️ Tiempo de espera excedido. Continuando...")
+                    break
+                time.sleep(0.5)
+        else:
+            print("✅ El follower ya se encuentra en la posición equivalente.")
+
+        # 4. CALIBRACIÓN DE ORÍGENES
+        leader_origin_lat,   leader_origin_lon,   leader_origin_alt   = get_position_from_telemetry(leader_telemetry)
+        follower_origin_lat, follower_origin_lon, follower_origin_alt = get_position_from_telemetry(follower_telemetry)
+
+        print(f"\nOrigen líder:    lat={leader_origin_lat:.7f}   lon={leader_origin_lon:.7f}   alt={leader_origin_alt:.2f} m")
+        print(f"Origen follower: lat={follower_origin_lat:.7f} lon={follower_origin_lon:.7f} alt={follower_origin_alt:.2f} m")
+        print("Orígenes calibrados. Iniciando replicado de movimiento.\n")
+
+        last_valid_leader_time = time.time()
+        initial_position_checked.set() # Marcamos que la inicialización ha terminado
+        follow_enabled.set() # Activamos el seguimiento real
+        continue # Pasamos al siguiente ciclo del loop
+
+    # --- LÓGICA DE SEGUIMIENTO (se ejecuta si follow_enabled es true) ---
     if not follow_enabled.is_set():
         time.sleep(0.1)
         continue
 
     try:
         leader_lat, leader_lon, leader_alt = get_position_from_telemetry(leader_telemetry)
-        # Telemetria del lider valida: actualizamos el timestamp
         last_valid_leader_time = time.time()
     except TimeoutError:
-        # Si llevamos demasiado tiempo sin telemetría del líder, paramos el follower por seguridad
         if time.time() - last_valid_leader_time > MAX_TELEMETRY_AGE:
             print("EMERGENCIA: Sin telemetría del líder. Deteniendo follower.")
             send_movement_command(follower, 0, 0, 0)
+            stop_follow()
             break
         print("Advertencia: No se recibió telemetría del líder en este ciclo. Omitiendo comando.")
         time.sleep(0.1)
@@ -479,71 +508,49 @@ while True:
         time.sleep(0.1)
         continue
 
-    # =========================
     # DETECCION DE ATERRIZAJE DEL LIDER
-    # Si el lider esta en modo LAND o RTL y su altitud es menor que el umbral,
-    # ordenamos al follower que aterrice y salimos del loop
-    # =========================
     leader_mode  = leader_telemetry.get('flightMode', '')
     leader_state = leader_telemetry.get('state', '')
 
-    if leader_mode in ('LAND', 'RTL') and leader_alt < LANDING_ALT_THRESHOLD:
-        print(f"Lider aterrizando (modo: {leader_mode}, alt: {leader_alt:.2f} m). El follower inicia aterrizaje.")
+    if (leader_mode in ('LAND', 'RTL') and leader_alt < LANDING_ALT_THRESHOLD) or \
+       (leader_state == 'disarmed' and leader_alt < AIRBORNE_ALT_THRESHOLD):
+        print(f"Lider aterrizando o desarmado. El follower inicia aterrizaje.")
         follower.Land()
+        stop_follow()
         break
 
-    # Si el lider ya esta en tierra (desarmado), tambien aterrizamos
-    if leader_state == 'disarmed' and leader_alt < AIRBORNE_ALT_THRESHOLD:
-        print(f"Lider desarmado (estado: {leader_state}). El follower inicia aterrizaje.")
-        follower.Land()
-        break
-
-    # =========================
     # CÁLCULO DEL DESPLAZAMIENTO RELATIVO DEL LÍDER
-    # Calculamos cuánto se ha movido el líder respecto a su origen (en metros)
-    # =========================
     leader_disp_east, leader_disp_north = to_meters(
         leader_origin_lat, leader_origin_lon,
         leader_lat,        leader_lon
     )
     leader_disp_alt = leader_alt - leader_origin_alt
 
-    # =========================
     # POSICIÓN OBJETIVO DEL FOLLOWER
-    # El follower debe estar en su propio origen + el mismo desplazamiento que el líder
-    # =========================
     follower_disp_east, follower_disp_north = to_meters(
         follower_origin_lat, follower_origin_lon,
         follower_lat,        follower_lon
     )
     target_alt = follower_origin_alt + leader_disp_alt
 
-    # Error: diferencia entre donde debería estar el follower y donde está
     error_east  = leader_disp_east  - follower_disp_east
     error_north = leader_disp_north - follower_disp_north
 
-    # =========================
     # PID
-    # =========================
     v_east  = pid_x.compute(0, -error_east,  LOOP_DT)
     v_north = pid_y.compute(0, -error_north, LOOP_DT)
     vz      = pid_z.compute(target_alt, follower_alt, LOOP_DT)
 
-    # =========================
     # ENVIAR COMANDOS
-    # =========================
     send_movement_command(follower, v_north, v_east, vz)
 
-    # =========================
     # DEBUG
-    # =========================
     print(
-        f"Disp líder:    N={leader_disp_north:.2f} m  E={leader_disp_east:.2f} m  alt={leader_disp_alt:.2f} m | "
-        f"Error follower: N={error_north:.2f} m  E={error_east:.2f} m | "
-        f"v_north:{v_north:.2f}  v_east:{v_east:.2f}  vz:{vz:.2f} | "
-        f"leader_mode:{leader_mode}"
+        f"Disp líder: N={leader_disp_north:.2f} E={leader_disp_east:.2f} alt={leader_disp_alt:.2f} | "
+        f"Error: N={error_north:.2f} E={error_east:.2f} | "
+        f"Vels: N={v_north:.2f} E={v_east:.2f} Z:{vz:.2f} | "
+        f"Modo:{leader_mode}", end='\r'
     )
 
-    # Dormimos el tiempo restante del periodo para mantener el loop a LOOP_HZ Hz
     elapsed = time.time() - t_start
     time.sleep(max(0, LOOP_DT - elapsed))
