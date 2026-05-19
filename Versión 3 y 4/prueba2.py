@@ -49,12 +49,12 @@ class PIDController:
 # =========================
 
 # ABRIENDO 2 INSTANCIAS DE SITL EN EL MISMO ORDENADOR:
-#LEADER_CONNECTION   = "udp:127.0.0.1:14551"
-LEADER_CONNECTION   = "tcp:127.0.0.1:5762"
-#FOLLOWER_CONNECTION = "udp:127.0.0.1:14561"
-FOLLOWER_CONNECTION = "tcp:127.0.0.1:5772"
-#BAUDIOS = 57600
-BAUDIOS = 115200
+LEADER_CONNECTION   = "udp:127.0.0.1:14551"
+#LEADER_CONNECTION   = "tcp:127.0.0.1:5762"
+FOLLOWER_CONNECTION = "udp:127.0.0.1:14561"
+#FOLLOWER_CONNECTION = "tcp:127.0.0.1:5772"
+BAUDIOS = 57600
+#BAUDIOS = 115200
 
 
 # Coordenadas NOROESTE de ambas geofences para calcular la traslación
@@ -233,26 +233,44 @@ def create_gui():
     def start_telemetry_button():
         threading.Thread(target=_start_telemetry_safe, daemon=True).start()
 
-    def _arm_both():
-        try:
-            leader.arm()
-            follower.arm()
-        except Exception as e:
-            print(f"Error armando drones: {e}")
-
-    def _takeoff_both():
+    def _arm_and_takeoff_both():
         try:
             alt = float(takeoff_alt_var.get())
+
+            # Armar al líder primero
+            print("🚁 Armando LÍDER...")
+            leader.arm()
+            print("✅ LÍDER armado correctamente")
+
+            # Pequeño delay para evitar conflictos de recursos
+            time.sleep(2)
+
+            # Armar al seguidor
+            print("🚁 Armando SEGUIDOR...")
+            follower.arm()
+            print("✅ SEGUIDOR armado correctamente")
+
+            # Pequeño delay antes de despegar
+            time.sleep(1)
+
+            # Despegar ambos con pequeño delay
+            print(f"📤 Despegando LÍDER a {alt}m...")
             leader.takeOff(alt)
+            print("✅ LÍDER despegando")
+
+            time.sleep(1)
+
+            print(f"📤 Despegando SEGUIDOR a {alt}m...")
             follower.takeOff(alt)
+            print("✅ SEGUIDOR despegando")
+
+            print("\n✈️  ¡Ambos drones en vuelo!")
+
         except Exception as e:
-            print(f"Error despegando drones: {e}")
+            print(f"❌ Error armando/despegando drones: {e}")
 
-    def arm_both():
-        threading.Thread(target=_arm_both, daemon=True).start()
-
-    def takeoff_both():
-        threading.Thread(target=_takeoff_both, daemon=True).start()
+    def arm_and_takeoff_both():
+        threading.Thread(target=_arm_and_takeoff_both, daemon=True).start()
 
     def request_follow():
         if not (telemetry_ready.is_set() and both_airborne()):
@@ -295,8 +313,7 @@ def create_gui():
     tk.Label(control_frame, text="Altitud despegue (m)").pack(pady=2)
     tk.Scale(control_frame, from_=1.0, to=20.0, resolution=0.5, orient="horizontal", variable=takeoff_alt_var).pack(fill="x", padx=10)
 
-    tk.Button(control_frame, text="Armar ambos", command=arm_both).pack(fill="x", padx=10, pady=3)
-    tk.Button(control_frame, text="Despegar ambos", command=takeoff_both).pack(fill="x", padx=10, pady=3)
+    tk.Button(control_frame, text="Armar y Despegar", command=arm_and_takeoff_both).pack(fill="x", padx=10, pady=3)
     tk.Button(control_frame, text="Activar seguimiento", command=request_follow).pack(fill="x", padx=10, pady=3)
     tk.Button(control_frame, text="Parar seguimiento", command=stop_follow_button).pack(fill="x", padx=10, pady=3)
     tk.Label(control_frame, textvariable=status_var).pack(pady=4)
