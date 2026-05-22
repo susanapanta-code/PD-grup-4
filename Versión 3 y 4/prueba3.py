@@ -1,5 +1,6 @@
 #imitar
 #igual a prueba2.py pero con el heading del follower siempre viendo al leader
+#INTEGRADO CON DETECCIÓN YOLO DE DRONES POR CÁMARA
 
 from pymavlink import mavutil
 from dronLink.Dron import Dron
@@ -7,6 +8,9 @@ import time
 import math
 import tkinter as tk
 import threading
+import cv2
+from ultralytics import YOLO
+from pathlib import Path
 
 # =========================
 # PID CLASS
@@ -51,12 +55,9 @@ class PIDController:
 # =========================
 
 # ABRIENDO 2 INSTANCIAS DE SITL EN EL MISMO ORDENADOR:
-#LEADER_CONNECTION   = "udp:127.0.0.1:14551"
-LEADER_CONNECTION   = "tcp:127.0.0.1:5762"
-#FOLLOWER_CONNECTION = "udp:127.0.0.1:14561"
-FOLLOWER_CONNECTION = "tcp:127.0.0.1:5772"
-#BAUDIOS = 57600
-BAUDIOS = 115200
+LEADER_CONNECTION   = "udp:127.0.0.1:14551"
+FOLLOWER_CONNECTION = "udp:127.0.0.1:14561"
+BAUDIOS = 57600
 
 
 # Coordenadas NOROESTE de ambas geofences para calcular la traslación
@@ -92,6 +93,22 @@ DEFAULT_TAKEOFF_ALT = 5.0
 
 # Umbral para considerar que el dron esta en el aire (metros)
 AIRBORNE_ALT_THRESHOLD = 1.0
+
+# =========================
+# VISION CONFIG (YOLO)
+# =========================
+MODEL_PATH = "./Entrenamiento_Red_Neuronal/runs/dron_yolov8n/weights/best.pt"
+VIDEO_SOURCE = "0"  # 0 para webcam, o URL
+CONFIDENCE = 0.5
+FOV_X_DEG = 78.0
+YAW_DEADZONE_DEG = 2.0
+YAW_COOLDOWN_SEC = 0.5
+YAW_MAX_STEP_DEG = 20.0
+
+vision_running = threading.Event()
+vision_running.set()
+vision_lock = threading.Lock()
+detected_yaw_error = None  # Error angular detectado por cámara
 
 # =========================
 # CONEXIÓN
@@ -255,21 +272,47 @@ def create_gui():
             # Pequeño delay antes de despegar
             time.sleep(1)
 
-            # Despegar ambos con pequeño delay
+            # Despegar ambos con espera bloqueante
             print(f"📤 Despegando LÍDER a {alt}m...")
             leader.takeOff(alt)
-            print("✅ LÍDER despegando")
+            
+            # Espera a que el lider realmente levante
+            leader_alt = 0.0
+            t_start = time.time()
+            timeout = 30
+            while time.time() - t_start < timeout:
+                leader_alt = leader_telemetry.get("alt", 0.0)
+                if leader_alt >= alt * 0.9:  # 90% de la altura objetivo
+                    print(f"✓ Lider despegó a {leader_alt:.1f}m")
+                    break
+                time.sleep(0.5)
+            else:
+                print(f"⚠️  Timeout esperando a que lider despegue (alt actual: {leader_alt:.1f}m)")
 
             time.sleep(1)
 
             print(f"📤 Despegando SEGUIDOR a {alt}m...")
             follower.takeOff(alt)
-            print("✅ SEGUIDOR despegando")
+            
+            # Espera a que el seguidor realmente levante
+            follower_alt = 0.0
+            t_start = time.time()
+            timeout = 30
+            while time.time() - t_start < timeout:
+                follower_alt = follower_telemetry.get("alt", 0.0)
+                if follower_alt >= alt * 0.9:  # 90% de la altura objetivo
+                    print(f"✓ Seguidor despegó a {follower_alt:.1f}m")
+                    break
+                time.sleep(0.5)
+            else:
+                print(f"⚠️  Timeout esperando a que seguidor despegue (alt actual: {follower_alt:.1f}m)")
 
             print("\n✈️  ¡Ambos drones en vuelo!")
 
         except Exception as e:
             print(f"❌ Error armando/despegando drones: {e}")
+            import traceback
+            traceback.print_exc()
 
     def arm_and_takeoff_both():
         threading.Thread(target=_arm_and_takeoff_both, daemon=True).start()
@@ -355,6 +398,23 @@ gui_thread.start()
 print("Dashboard abierto. Pulsa los botones para conectar y activar telemetría.")
 print("Mientras tanto, el script esperará a que completes estas acciones...\n")
 
+# Lanzamos el thread de visión YOLO
+try:
+    model_path = MODEL_PATH
+    # Intentar resolver la ruta del modelo
+    if not Path(model_path).is_file():
+        search_root = Path(__file__).resolve().parent
+        alt_path = search_root / model_path
+        if alt_path.is_file():
+            model_path = str(alt_path)
+    
+    vision_thread = threading.Thread(target=vision_loop, args=(model_path, VIDEO_SOURCE, CONFIDENCE, FOV_X_DEG), daemon=True)
+    vision_thread.start()
+    print("Thread de visión YOLO iniciado.\n")
+except Exception as e:
+    print(f"Advertencia: No se pudo iniciar visión YOLO: {e}\n")
+    vision_running.clear()
+
 # =========================
 # FUNCIONES AUX
 # =========================
@@ -412,6 +472,86 @@ def send_movement_command(dron, v_north, v_east, vz, yaw_rad):
         dron.vehicle.mav.send(cmd)
     except Exception as e:
         print(f"Error enviando comando integral: {e}")
+
+# =========================
+# VISION LOOP (YOLO)
+# =========================
+
+def vision_loop(model_path, source_value, conf, fov_x):
+    """Thread de detección YOLO en tiempo real."""
+    global detected_yaw_error
+    
+    # Convertir source a int si es webcam
+    source = int(source_value) if str(source_value).isdigit() else source_value
+    
+    try:
+        model = YOLO(model_path)
+        print(f"✓ Modelo YOLO cargado: {model_path}")
+    except Exception as e:
+        print(f"✗ Error cargando modelo YOLO: {e}")
+        return
+    
+    try:
+        cap = cv2.VideoCapture(source)
+        if not cap.isOpened():
+            print(f"✗ No se pudo abrir la fuente de video: {source}")
+            return
+        print(f"✓ Fuente de video abierta: {source}")
+    except Exception as e:
+        print(f"✗ Error al abrir video: {e}")
+        return
+    
+    last_yaw_time = 0.0
+    
+    while vision_running.is_set():
+        ret, frame = cap.read()
+        if not ret:
+            time.sleep(0.05)
+            continue
+        
+        try:
+            results = model.predict(frame, conf=conf, verbose=False)
+        except Exception as e:
+            print(f"✗ Error en predicción: {e}")
+            break
+        
+        if not results or results[0].boxes is None:
+            continue
+        
+        boxes = results[0].boxes
+        if boxes.xyxy is None or boxes.conf is None:
+            continue
+        
+        # Selecciona la detección con mayor confianza
+        best_idx = int(boxes.conf.argmax().item()) if boxes.conf.numel() > 0 else None
+        if best_idx is None:
+            continue
+        
+        x1, y1, x2, y2 = boxes.xyxy[best_idx].tolist()
+        cx = (x1 + x2) / 2.0
+        width = frame.shape[1]
+        
+        # Error angular según FOV
+        error_px = cx - (width / 2.0)
+        error_norm = error_px / max(1.0, width / 2.0)
+        error_angle = error_norm * (fov_x / 2.0)
+        
+        if abs(error_angle) < YAW_DEADZONE_DEG:
+            with vision_lock:
+                detected_yaw_error = None
+            continue
+        
+        now = time.time()
+        if now - last_yaw_time < YAW_COOLDOWN_SEC:
+            continue
+        
+        # Guardar el error angular detectado
+        with vision_lock:
+            detected_yaw_error = error_angle
+        
+        last_yaw_time = now
+    
+    cap.release()
 
 # =========================
 # ESPERAR ACCIONES DEL USUARIO
@@ -582,6 +722,22 @@ while True:
     # por lo que el uso de (Este, Norte) en atan2 es correcto.
     yaw_rad = math.atan2(vec_to_leader_east, vec_to_leader_north)
 
+    # --- AJUSTE POR DETECCIÓN VISUAL (YOLO) ---
+    # Si hay detección de dron por cámara, ajusta el yaw gradualmente hacia él
+    with vision_lock:
+        cam_error = detected_yaw_error
+
+    if cam_error is not None and abs(cam_error) > YAW_DEADZONE_DEG:
+        # Obtener el heading actual del follower
+        follower_heading = follower_telemetry.get('heading', 0.0)
+        if follower_heading is not None:
+            # Ajuste incremental del heading
+            step = max(min(cam_error, YAW_MAX_STEP_DEG), -YAW_MAX_STEP_DEG)
+            target_heading = (follower_heading + step) % 360
+            yaw_rad = math.radians(target_heading)
+
+    # --- FIN DEL AJUSTE POR DETECCIÓN VISUAL ---
+
     # ENVIAR COMANDOS INTEGRADOS DE MOVIMIENTO + ROTACIÓN
     send_movement_command(follower, v_north, v_east, vz, yaw_rad)
 
@@ -593,11 +749,12 @@ while True:
     # --- FIN DEL NUEVO CÓDIGO ---
 
     # DEBUG
+    cam_status = "📷 Dron detectado" if detected_yaw_error is not None else "📷 --"
     print(
         f"Disp líder: N={leader_disp_north:.2f} E={leader_disp_east:.2f} | "
         f"Error: N={error_north:.2f} E={error_east:.2f} | "
         f"Vels: N={v_north:.2f} E={v_east:.2f} | "
-        f"Yaw: {yaw_deg:.1f}°", end='\r'
+        f"Yaw: {yaw_deg:.1f}° | {cam_status}", end='\r'
     )
 
     elapsed = time.time() - t_start
