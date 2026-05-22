@@ -186,7 +186,111 @@ def stop_follow(status_var=None):
         status_var.set("Seguimiento: OFF")
     print("\nSeguimiento detenido.")
     # Enviamos un comando para que el dron se quede quieto (hover)
-    send_movement_command(follower, 0, 0, 0)
+    send_movement_command(follower, 0, 0, 0, 0)
+
+
+def send_movement_command(dron, v_north, v_east, vz, yaw_rad=0):
+    """Envía comando integrado de movimiento + rotación al dron."""
+    # Limitamos velocidades por seguridad
+    v_north_lim = max(min(v_north, 5.0), -5.0)
+    v_east_lim  = max(min(v_east,  5.0), -5.0)
+    vz_lim      = max(min(vz,      1.0), -1.0)
+    ned_vz = -vz_lim
+
+    try:
+        # La máscara 0b0000101111000111 (Bit 10 = 0) indica al dron que debe
+        # hacer caso a los parámetros de velocidad Y al de yaw simultáneamente.
+        cmd = mavutil.mavlink.MAVLink_set_position_target_local_ned_message(
+            0,
+            dron.vehicle.target_system,
+            dron.vehicle.target_component,
+            mavutil.mavlink.MAV_FRAME_LOCAL_NED,
+            0b0000101111000111,
+            0, 0, 0,                              # posiciones ignoradas
+            v_north_lim, v_east_lim, ned_vz,      # velocidades aplicadas
+            0, 0, 0,                              # aceleraciones ignoradas
+            yaw_rad, 0                            # YAW aplicado (en radianes), yaw_rate ignorado
+        )
+        dron.vehicle.mav.send(cmd)
+    except Exception as e:
+        print(f"Error enviando comando integral: {e}")
+
+
+def vision_loop(model_path, source_value, conf, fov_x):
+    """Thread de detección YOLO en tiempo real."""
+    global detected_yaw_error
+    
+    # Convertir source a int si es webcam
+    source = int(source_value) if str(source_value).isdigit() else source_value
+    
+    try:
+        model = YOLO(model_path)
+        print(f"✓ Modelo YOLO cargado: {model_path}")
+    except Exception as e:
+        print(f"✗ Error cargando modelo YOLO: {e}")
+        return
+    
+    try:
+        cap = cv2.VideoCapture(source)
+        if not cap.isOpened():
+            print(f"✗ No se pudo abrir la fuente de video: {source}")
+            return
+        print(f"✓ Fuente de video abierta: {source}")
+    except Exception as e:
+        print(f"✗ Error al abrir video: {e}")
+        return
+    
+    last_yaw_time = 0.0
+    
+    while vision_running.is_set():
+        ret, frame = cap.read()
+        if not ret:
+            time.sleep(0.05)
+            continue
+        
+        try:
+            results = model.predict(frame, conf=conf, verbose=False)
+        except Exception as e:
+            print(f"✗ Error en predicción: {e}")
+            break
+        
+        if not results or results[0].boxes is None:
+            continue
+        
+        boxes = results[0].boxes
+        if boxes.xyxy is None or boxes.conf is None:
+            continue
+        
+        # Selecciona la detección con mayor confianza
+        best_idx = int(boxes.conf.argmax().item()) if boxes.conf.numel() > 0 else None
+        if best_idx is None:
+            continue
+        
+        x1, y1, x2, y2 = boxes.xyxy[best_idx].tolist()
+        cx = (x1 + x2) / 2.0
+        width = frame.shape[1]
+        
+        # Error angular según FOV
+        error_px = cx - (width / 2.0)
+        error_norm = error_px / max(1.0, width / 2.0)
+        error_angle = error_norm * (fov_x / 2.0)
+        
+        if abs(error_angle) < YAW_DEADZONE_DEG:
+            with vision_lock:
+                detected_yaw_error = None
+            continue
+        
+        now = time.time()
+        if now - last_yaw_time < YAW_COOLDOWN_SEC:
+            continue
+        
+        # Guardar el error angular detectado
+        with vision_lock:
+            detected_yaw_error = error_angle
+        
+        last_yaw_time = now
+    
+    cap.release()
 
 
 # =========================
@@ -448,110 +552,6 @@ def distance_meters(lat1, lon1, lat2, lon2):
     dist_east, dist_north = to_meters(lat1, lon1, lat2, lon2)
     return math.sqrt(dist_east**2 + dist_north**2)
 
-def send_movement_command(dron, v_north, v_east, vz, yaw_rad):
-    # Limitamos velocidades por seguridad
-    v_north_lim = max(min(v_north, 5.0), -5.0)
-    v_east_lim  = max(min(v_east,  5.0), -5.0)
-    vz_lim      = max(min(vz,      1.0), -1.0)
-    ned_vz = -vz_lim
-
-    try:
-        # La máscara 0b0000101111000111 (Bit 10 = 0) indica al dron que debe
-        # hacer caso a los parámetros de velocidad Y al de yaw simultáneamente.
-        cmd = mavutil.mavlink.MAVLink_set_position_target_local_ned_message(
-            0,
-            dron.vehicle.target_system,
-            dron.vehicle.target_component,
-            mavutil.mavlink.MAV_FRAME_LOCAL_NED,
-            0b0000101111000111,
-            0, 0, 0,                              # posiciones ignoradas
-            v_north_lim, v_east_lim, ned_vz,      # velocidades aplicadas
-            0, 0, 0,                              # aceleraciones ignoradas
-            yaw_rad, 0                            # YAW aplicado (en radianes), yaw_rate ignorado
-        )
-        dron.vehicle.mav.send(cmd)
-    except Exception as e:
-        print(f"Error enviando comando integral: {e}")
-
-# =========================
-# VISION LOOP (YOLO)
-# =========================
-
-def vision_loop(model_path, source_value, conf, fov_x):
-    """Thread de detección YOLO en tiempo real."""
-    global detected_yaw_error
-    
-    # Convertir source a int si es webcam
-    source = int(source_value) if str(source_value).isdigit() else source_value
-    
-    try:
-        model = YOLO(model_path)
-        print(f"✓ Modelo YOLO cargado: {model_path}")
-    except Exception as e:
-        print(f"✗ Error cargando modelo YOLO: {e}")
-        return
-    
-    try:
-        cap = cv2.VideoCapture(source)
-        if not cap.isOpened():
-            print(f"✗ No se pudo abrir la fuente de video: {source}")
-            return
-        print(f"✓ Fuente de video abierta: {source}")
-    except Exception as e:
-        print(f"✗ Error al abrir video: {e}")
-        return
-    
-    last_yaw_time = 0.0
-    
-    while vision_running.is_set():
-        ret, frame = cap.read()
-        if not ret:
-            time.sleep(0.05)
-            continue
-        
-        try:
-            results = model.predict(frame, conf=conf, verbose=False)
-        except Exception as e:
-            print(f"✗ Error en predicción: {e}")
-            break
-        
-        if not results or results[0].boxes is None:
-            continue
-        
-        boxes = results[0].boxes
-        if boxes.xyxy is None or boxes.conf is None:
-            continue
-        
-        # Selecciona la detección con mayor confianza
-        best_idx = int(boxes.conf.argmax().item()) if boxes.conf.numel() > 0 else None
-        if best_idx is None:
-            continue
-        
-        x1, y1, x2, y2 = boxes.xyxy[best_idx].tolist()
-        cx = (x1 + x2) / 2.0
-        width = frame.shape[1]
-        
-        # Error angular según FOV
-        error_px = cx - (width / 2.0)
-        error_norm = error_px / max(1.0, width / 2.0)
-        error_angle = error_norm * (fov_x / 2.0)
-        
-        if abs(error_angle) < YAW_DEADZONE_DEG:
-            with vision_lock:
-                detected_yaw_error = None
-            continue
-        
-        now = time.time()
-        if now - last_yaw_time < YAW_COOLDOWN_SEC:
-            continue
-        
-        # Guardar el error angular detectado
-        with vision_lock:
-            detected_yaw_error = error_angle
-        
-        last_yaw_time = now
-    
-    cap.release()
 
 # =========================
 # ESPERAR ACCIONES DEL USUARIO
