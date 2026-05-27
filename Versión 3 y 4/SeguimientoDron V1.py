@@ -56,7 +56,6 @@ FOLLOWER_CONNECTION = "udp:127.0.0.1:14561"
 BAUDIOS = 57600
 #BAUDIOS = 115200
 
-
 # Coordenadas NOROESTE de ambas geofences para calcular la traslación
 # REEMPLAZA las coordenadas del líder con el punto noroeste de tu foto
 LEADER_GEOFENCE_NW_LAT = 41.2764287
